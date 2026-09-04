@@ -1283,6 +1283,9 @@ const DEFAULT_SHEET_ID = '1Vr2N6Gj4J-1lNeGfP0iQcxMzNB7l-l25Q7pWOhJdMxY';
 // read-only key for a sheet that must be link-viewable for sync to work at all.
 const DEFAULT_API_KEY = 'AIzaSyAlJ-g-U0aydWV2XbuqOav1MPnX7I6TJso';
 const GOOGLE_CLIENT_ID = '525510937345-klsct99b575o1fafmck76clcd36b2qma.apps.googleusercontent.com';
+// Baked in for the same reason as DEFAULT_API_KEY — every browser/device is a separate
+// localStorage, so without this each teammate would have to paste it in manually.
+const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbwsMbf2jagQ_VkKU4qNpASPf6WiwxZ0v2yYlVuR4jFZIBcPGMia3BYLSpH1lIfqVs5Y/exec';
 let API_KEY  = '';
 let SHEET_ID = DEFAULT_SHEET_ID;
 let SYNC_URL = '';
@@ -1369,7 +1372,7 @@ window.addEventListener('load', () => {
   const usingDefault = !savedKey && DEFAULT_API_KEY.indexOf('PASTE_YOUR') !== 0;
   API_KEY  = savedKey || (usingDefault ? DEFAULT_API_KEY : '');
   SHEET_ID = localStorage.getItem('sos_sheet') || DEFAULT_SHEET_ID;
-  SYNC_URL = localStorage.getItem('sos_sync_url') || '';
+  SYNC_URL = localStorage.getItem('sos_sync_url') || DEFAULT_SYNC_URL;
 
   cloneAuthLogos();
   initChatUI();
