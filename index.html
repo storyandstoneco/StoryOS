@@ -82,7 +82,9 @@
       background: var(--card-bg); border-radius: 6px; padding: 48px 40px; border: 1px solid var(--border);
       width: 100%; max-width: 460px; text-align: center; box-shadow: var(--shadow-lg);
     }
-    .setup-logo { font-family: 'PT Serif', Georgia, serif; font-size: 30px; font-weight: 700; color: var(--navy); }
+    .setup-logo { font-family: 'PT Serif', Georgia, serif; font-size: 30px; font-weight: 700; color: var(--terra); }
+    .auth-logo-slot { display: flex; justify-content: center; margin-bottom: 18px; }
+    .auth-logo-slot img { display: block; }
     .setup-tagline { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--terra); margin-top: 4px; margin-bottom: 32px; }
     .setup-desc { font-size: 13px; color: var(--text-mid); line-height: 1.7; margin-bottom: 28px; }
     .form-group { text-align: left; margin-bottom: 16px; }
@@ -597,6 +599,7 @@
 ════════════════════════════════════════════ -->
 <div id="signin-screen" style="display:none">
   <div class="setup-card">
+    <div class="auth-logo-slot" id="signin-logo-slot"></div>
     <h1 class="setup-logo">Story &amp; Stone</h1>
     <p class="setup-tagline">StoryOS Team Access</p>
     <p class="setup-desc">Sign in with your Google account to open StoryOS. Your access is set by the admin — you'll only see the modules you've been given.</p>
@@ -610,6 +613,7 @@
 ════════════════════════════════════════════ -->
 <div id="not-authorized-screen" style="display:none">
   <div class="setup-card">
+    <div class="auth-logo-slot" id="na-logo-slot"></div>
     <h1 class="setup-logo">Story &amp; Stone</h1>
     <p class="setup-tagline">StoryOS Team Access</p>
     <p class="setup-desc">Signed in as <strong id="na-email"></strong> — this account doesn't have access to StoryOS yet. Ask your admin to add you under Team Access.</p>
@@ -1344,6 +1348,17 @@ tickClock();
 setInterval(tickClock, 60000);
 
 // ── INIT ─────────────────────────────────────
+// Copies the real logo image (already embedded once on the setup screen) onto the
+// sign-in / not-authorized screens too, instead of duplicating that huge embedded image.
+function cloneAuthLogos() {
+  const source = document.querySelector('#setup-screen .setup-card img');
+  if (!source) return;
+  ['signin-logo-slot', 'na-logo-slot'].forEach(slotId => {
+    const slot = document.getElementById(slotId);
+    if (slot && !slot.firstChild) slot.appendChild(source.cloneNode(true));
+  });
+}
+
 window.addEventListener('load', () => {
   const savedKey = localStorage.getItem('sos_key') || '';
   const usingDefault = !savedKey && DEFAULT_API_KEY.indexOf('PASTE_YOUR') !== 0;
@@ -1351,6 +1366,7 @@ window.addEventListener('load', () => {
   SHEET_ID = localStorage.getItem('sos_sheet') || DEFAULT_SHEET_ID;
   SYNC_URL = localStorage.getItem('sos_sync_url') || '';
 
+  cloneAuthLogos();
   initChatUI();
   initGoogleSignIn();
 
