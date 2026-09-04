@@ -1247,7 +1247,7 @@
 <!-- ════════════════════════════════════════════
      FOUNDER CHAT
 ════════════════════════════════════════════ -->
-<button class="chat-fab" id="chat-fab" onclick="toggleChat()" title="Ask StoryOS">💬</button>
+<button class="chat-fab" id="chat-fab" onclick="toggleChat()" title="Ask StoryOS" style="display:none">💬</button>
 
 <div class="chat-panel" id="chat-panel">
   <div class="chat-header">
@@ -1272,7 +1272,7 @@
 const DEFAULT_SHEET_ID = '1Vr2N6Gj4J-1lNeGfP0iQcxMzNB7l-l25Q7pWOhJdMxY';
 // Baked in so teammates never have to enter an API key themselves — it's already a
 // read-only key for a sheet that must be link-viewable for sync to work at all.
-const DEFAULT_API_KEY = 'PASTE_YOUR_SHEETS_API_KEY_HERE';
+const DEFAULT_API_KEY = 'AIzaSyAlJ-g-U0aydWV2XbuqOav1MPnX7I6TJso';
 const GOOGLE_CLIENT_ID = 'PASTE_YOUR_GOOGLE_CLIENT_ID_HERE';
 let API_KEY  = '';
 let SHEET_ID = DEFAULT_SHEET_ID;
@@ -1423,6 +1423,8 @@ function signOutOfStoryOS() {
   localStorage.removeItem('sos_user_name');
   currentUser = null;
   document.getElementById('app').style.display = 'none';
+  document.getElementById('chat-fab').style.display = 'none';
+  document.getElementById('chat-panel').classList.remove('show');
   document.getElementById('not-authorized-screen').style.display = 'none';
   document.getElementById('signin-screen').style.display = 'flex';
   if (window.google) google.accounts.id.disableAutoSelect();
@@ -1504,6 +1506,7 @@ function bootApp() {
   document.getElementById('signin-screen').style.display = 'none';
   document.getElementById('not-authorized-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  document.getElementById('chat-fab').style.display = 'flex';
   applyPermissions();
   const founder = getTeam()[0];
   if (founder) setText('masthead-avatar', (founder.name||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase());
@@ -1815,19 +1818,31 @@ async function sendChatMessage() {
   messages.appendChild(loading);
   messages.scrollTop = messages.scrollHeight;
 
+  // Only send data for modules this signed-in user actually has access to — the chatbot
+  // must not be a side-channel around the hidden tabs.
+  const canSee = (mod) => !currentUser || currentUser.isAdmin || currentUser.modules.has(mod);
+  const restrictedModules = [];
+  if (!canSee('orders'))  restrictedModules.push('Orders');
+  if (!canSee('revenue')) restrictedModules.push('Revenue & P&L');
+  if (!canSee('tasks'))   restrictedModules.push('Tasks');
+  if (!canSee('team'))    restrictedModules.push('Team');
+  if (!canSee('social'))  restrictedModules.push('Social Calendar');
+  if (!canSee('b2b'))     restrictedModules.push('B2B (Wedding Planners & Corporates)');
+
   try {
     const res = await fetch(CHAT_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         question,
-        orders: store.orders || [],
-        tasks: getTasks(),
-        team: getTeam(),
-        social: store.social || [],
-        weddingPlanners: store.weddingPlanners || [],
-        corporates: store.corporates || [],
-        pnl: store.pnl || [],
+        orders: canSee('orders') ? (store.orders || []) : [],
+        tasks: canSee('tasks') ? getTasks() : [],
+        team: canSee('team') ? getTeam() : [],
+        social: canSee('social') ? (store.social || []) : [],
+        weddingPlanners: canSee('b2b') ? (store.weddingPlanners || []) : [],
+        corporates: canSee('b2b') ? (store.corporates || []) : [],
+        pnl: canSee('revenue') ? (store.pnl || []) : [],
+        restrictedModules,
         history: recentHistory,
       }),
     });
