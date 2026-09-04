@@ -1642,8 +1642,13 @@ async function postToSheet(body) {
 
 function sendInviteEmail(name, email) {
   // Fire-and-forget — a failed invite email shouldn't block the Team Access save.
+  // Content-Type must be application/json here (unlike the Apps Script calls) —
+  // n8n's webhook node only parses the body into $json.body when it's told the
+  // body is JSON; without this header it arrives as an unparsed text string and
+  // every field reads as undefined.
   fetch(INVITE_WEBHOOK_URL, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email })
   }).catch(() => {});
 }
@@ -1712,17 +1717,24 @@ const NOTIF_ICONS = { Team: '👤', Orders: '📦', B2B: '🤝', Social: '📅',
 
 function actorName() { return (currentUser && currentUser.name) || 'Someone'; }
 
-// Fire-and-forget, like sendInviteEmail() — a failed activity log write
-// should never block the action that triggered it.
+// Updates locally first (so the badge/feed reflect it instantly, without
+// waiting for the next full sync) and writes to the sheet in the background —
+// fire-and-forget, like sendInviteEmail(); a failed write shouldn't block the
+// action that triggered it.
 function logActivity(category, message) {
+  const entry = { Timestamp: 't' + Date.now(), Actor: actorName(), Category: category, Message: message };
+  if (!store.activityLog) store.activityLog = [];
+  store.activityLog.push(entry);
+  if (document.getElementById('tab-notifications')?.classList.contains('active')) {
+    renderNotifications();
+  } else {
+    updateNotifBadge();
+  }
+
   if (!SYNC_URL) return;
   fetch(SYNC_URL, {
     method: 'POST',
-    body: JSON.stringify({
-      action: 'addRow',
-      sheet: 'Activity Log',
-      fields: { Timestamp: 't' + Date.now(), Actor: actorName(), Category: category, Message: message },
-    }),
+    body: JSON.stringify({ action: 'addRow', sheet: 'Activity Log', fields: entry }),
   }).catch(() => {});
 }
 
