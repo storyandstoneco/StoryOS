@@ -1219,6 +1219,7 @@
     <input type="hidden" id="ta-orig-email" value="">
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeTeamAccessModal()">Cancel</button>
+      <button class="btn-danger" id="ta-del-btn" onclick="deleteTeamAccessMember()" style="display:none">Delete</button>
       <button class="btn-primary" style="flex:1;margin-top:0" onclick="saveTeamAccessMember()">Save</button>
     </div>
   </div>
@@ -1234,6 +1235,7 @@
     <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px" id="order-edit-sync-note"></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeOrderEditModal()">Cancel</button>
+      <button class="btn-danger" id="order-edit-del-btn" onclick="deleteOrderEdit()" style="display:none">Delete</button>
       <button class="btn-primary" style="flex:1;margin-top:0" id="order-edit-save-btn" onclick="saveOrderEdit()">Save</button>
     </div>
   </div>
@@ -1248,6 +1250,7 @@
     <div class="detail-grid" id="b2b-edit-fields" style="margin-bottom:10px"></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeB2BEditModal()">Cancel</button>
+      <button class="btn-danger" onclick="deleteB2BEdit()">Delete</button>
       <button class="btn-primary" style="flex:1;margin-top:0" onclick="saveB2BEdit()">Save</button>
     </div>
   </div>
@@ -2313,6 +2316,7 @@ function openOrderEditModal(orderId) {
     : "Sync isn't set up — go to Settings to enable saving to your Google Sheet.";
   const prefill = order || (orderEditMode === 'add' ? { 'Order ID': suggestNextOrderId() } : null);
   renderOrderEditFields(prefill);
+  document.getElementById('order-edit-del-btn').style.display = orderId ? 'block' : 'none';
   document.getElementById('order-edit-modal').classList.add('show');
 }
 
@@ -2356,6 +2360,30 @@ async function saveOrderEdit() {
   renderHomeStats();
   renderRevenue();
   if (fields['Order ID']) openOrderById(fields['Order ID']);
+}
+
+async function deleteOrderEdit() {
+  if (!orderEditOrigId) return;
+  if (!confirm('Delete order ' + orderEditOrigId + '? This cannot be undone.')) return;
+
+  const btn = document.getElementById('order-edit-del-btn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+
+  const result = await postToSheet({ action: 'deleteRow', sheet: 'Orders', matchColumn: 'Order ID', matchValue: orderEditOrigId });
+
+  btn.disabled = false;
+  btn.textContent = 'Delete';
+  if (!result.ok) return;
+
+  if (store.orders) {
+    const idx = store.orders.findIndex(o => o['Order ID'] === orderEditOrigId);
+    if (idx >= 0) store.orders.splice(idx, 1);
+  }
+  closeOrderEditModal();
+  renderOrders();
+  renderHomeStats();
+  renderRevenue();
 }
 
 function openOrderById(orderId) {
@@ -3049,6 +3077,19 @@ async function saveB2BEdit() {
   renderB2B();
 }
 
+async function deleteB2BEdit() {
+  if (!confirm('Delete "' + b2bEditOrigName + '" from ' + b2bEditSheet + '? This cannot be undone.')) return;
+
+  const result = await postToSheet({ action: 'deleteRow', sheet: b2bEditSheet, matchColumn: b2bEditNameKey, matchValue: b2bEditOrigName });
+  if (!result.ok) return;
+
+  const contacts = b2bEditSheet === 'Corporates' ? store.corporates : store.weddingPlanners;
+  const idx = contacts.findIndex(c => c[b2bEditNameKey] === b2bEditOrigName);
+  if (idx >= 0) contacts.splice(idx, 1);
+  closeB2BEditModal();
+  renderB2B();
+}
+
 function switchB2B(tab, btn) {
   document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -3114,6 +3155,8 @@ function saveTeamMember() {
 function deleteTeamMember() {
   const team = getTeam();
   const idx  = parseInt(document.getElementById('tm-idx').value);
+  const name = (team[idx] && team[idx].name) || 'this member';
+  if (!confirm('Remove ' + name + ' from the Team tab? This cannot be undone.')) return;
   team.splice(idx, 1);
   saveTeamData(team);
   renderTeam();
@@ -3189,10 +3232,23 @@ function openTeamAccessModal(email) {
   }
   document.getElementById('ta-orig-email').value = email || '';
   document.getElementById('team-access-modal-title').textContent = email ? 'Edit Person' : 'Add Person';
+  document.getElementById('ta-del-btn').style.display = email ? 'block' : 'none';
   document.getElementById('team-access-modal').classList.add('show');
 }
 
 function closeTeamAccessModal() { document.getElementById('team-access-modal').classList.remove('show'); }
+
+async function deleteTeamAccessMember() {
+  const email = document.getElementById('ta-orig-email').value;
+  if (!email) return;
+  if (!confirm('Remove access for ' + email + '? They will no longer be able to sign in.')) return;
+
+  const result = await postToSheet({ action: 'deleteRow', sheet: 'Team Access', matchColumn: 'Email', matchValue: email });
+  if (!result.ok) return;
+
+  closeTeamAccessModal();
+  renderTeamAccessList();
+}
 
 async function saveTeamAccessMember() {
   const name = document.getElementById('ta-name').value.trim();
