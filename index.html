@@ -393,6 +393,13 @@
     .contact-follow { font-family: 'Work Sans', sans-serif; font-size: 11px; color: var(--amber); margin-top: 3px; }
     .contact-status { flex-shrink: 0; }
 
+    /* ── NOTIFICATIONS ── */
+    .notif-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--r-sm); margin-bottom: 8px; }
+    .notif-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--cream); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+    .notif-body { min-width: 0; flex: 1; }
+    .notif-msg { font-size: 13px; color: var(--text); line-height: 1.5; }
+    .notif-meta { font-family: 'Work Sans', sans-serif; font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+
     /* ── PIPELINE / STEPPER ── */
     .pipeline { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; margin-bottom: 20px; border-radius: var(--r); overflow: hidden; border: 1px solid var(--border); }
     .pipeline-stage { flex: 1; min-width: 0; position: relative; background: var(--card-bg); padding: 14px 18px 14px 26px; }
@@ -660,6 +667,7 @@
         <button class="nav-btn"        data-tab="team"    onclick="showTab('team',this)">Team</button>
         <button class="nav-btn"        data-tab="social-insights"  onclick="showTab('social-insights',this)">Insights</button>
         <button class="nav-btn"        data-tab="conversations"    onclick="showTab('conversations',this)">Conversations</button>
+        <button class="nav-btn"        data-tab="notifications"    onclick="showTab('notifications',this)">Notifications<span class="nav-badge" id="notif-badge"></span></button>
         <button class="nav-btn"        data-tab="team-access"      onclick="showTab('team-access',this)" style="display:none">Team Access</button>
       </nav>
 
@@ -1144,6 +1152,14 @@
           <div class="team-grid" id="team-grid"></div>
         </div>
 
+        <!-- ── NOTIFICATIONS ── -->
+        <div class="tab-pane" id="tab-notifications">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+            <p style="font-size:13px;color:var(--text-mid)">A live feed of everything happening across StoryOS — orders, team changes, and outreach.</p>
+          </div>
+          <div id="notif-list"></div>
+        </div>
+
         <!-- ── TEAM ACCESS (admin only) ── -->
         <div class="tab-pane" id="tab-team-access">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
@@ -1302,7 +1318,7 @@ let SHEET_ID = DEFAULT_SHEET_ID;
 let SYNC_URL = '';
 
 // ── TEAM ACCESS / SIGN-IN ──────────────────────
-const ALL_MODULES = ['home','orders','revenue','products','b2b','social','tasks','team','social-insights','conversations'];
+const ALL_MODULES = ['home','orders','revenue','products','b2b','social','tasks','team','social-insights','conversations','notifications'];
 let currentUser = null; // { email, name, isAdmin, modules: Set<string> }
 
 // n8n webhook that powers the "Ask StoryOS" chat — see workflows/founder-chat-agent.json
@@ -1317,6 +1333,7 @@ const store = {
   social:          null,
   weddingPlanners: null,
   corporates:      null,
+  activityLog:     null,
 };
 
 // Working copies for filter/detail
@@ -1345,7 +1362,7 @@ const TAB_TITLES = {
   tasks:'Tasks', social:'Social Media Calendar',
   products:'Products', b2b:'B2B Outreach', team:'Team',
   'social-insights':'Social Insights', conversations:'Conversations',
-  'team-access':'Team Access',
+  'team-access':'Team Access', notifications:'Notifications',
 };
 
 // ── CLOCK ─────────────────────────────────────
@@ -1443,7 +1460,7 @@ function handleGoogleSignIn(response) {
   }
   localStorage.setItem('sos_user_email', payload.email);
   localStorage.setItem('sos_user_name', payload.name || payload.email);
-  authorizeUser(payload.email);
+  authorizeUser(payload.email, true);
 }
 
 function showSignInErr(msg) {
@@ -1487,7 +1504,7 @@ async function fetchTeamAccessRows() {
   return parsed;
 }
 
-async function authorizeUser(email) {
+async function authorizeUser(email, isInteractive) {
   try {
     const parsed = await fetchTeamAccessRows();
     if (!parsed) { showNotAuthorized(email); return; }
@@ -1504,6 +1521,9 @@ async function authorizeUser(email) {
 
     currentUser = { email, name: match[nameCol] || email, isAdmin, modules };
     bootApp();
+    // Only log an explicit interactive sign-in, not the silent re-validation that
+    // runs on every page load — otherwise every refresh would spam the feed.
+    if (isInteractive) logActivity('Team', currentUser.name + ' signed in to StoryOS');
   } catch (e) {
     showSignInErr('Could not check your access — please try again.');
     document.getElementById('signin-screen').style.display = 'flex';
@@ -1568,6 +1588,7 @@ function showTab(id, btn) {
   if (window.innerWidth <= 768) closeSidebar();
   if (id === 'home') renderHomeWidgets();
   if (id === 'team-access') renderTeamAccessList();
+  if (id === 'notifications') renderNotifications();
   // placeholder: social-insights and conversations have no async init needed
 }
 
@@ -1639,6 +1660,7 @@ async function syncAll() {
     ['Social Media Calendar','social'],
     ['Wedding Planners',     'weddingPlanners'],
     ['Corporates',           'corporates'],
+    ['Activity Log',         'activityLog'],
   ];
   await Promise.allSettled(tabs.map(([tab, key]) => fetchTab(tab, key)));
 
@@ -1683,6 +1705,79 @@ async function fetchTab(tabName, storeKey) {
     store[storeKey] = null;
     console.error(`Network error for "${tabName}":`, e);
   }
+}
+
+// ── NOTIFICATIONS ─────────────────────────────
+const NOTIF_ICONS = { Team: '👤', Orders: '📦', B2B: '🤝', Social: '📅', System: '⚙️' };
+
+function actorName() { return (currentUser && currentUser.name) || 'Someone'; }
+
+// Fire-and-forget, like sendInviteEmail() — a failed activity log write
+// should never block the action that triggered it.
+function logActivity(category, message) {
+  if (!SYNC_URL) return;
+  fetch(SYNC_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'addRow',
+      sheet: 'Activity Log',
+      fields: { Timestamp: 't' + Date.now(), Actor: actorName(), Category: category, Message: message },
+    }),
+  }).catch(() => {});
+}
+
+// Timestamps are stored as "t<epoch-ms>" (not a bare ISO string) so Google
+// Sheets can't silently reformat them into a locale date — that would break
+// parsing here in a way that's invisible until someone's regional settings differ.
+function parseActivityTs(ts) {
+  return parseInt(String(ts || '').replace(/^t/, ''), 10) || 0;
+}
+
+function relativeTime(ts) {
+  const ms = parseActivityTs(ts);
+  if (!ms) return '';
+  const diffMin = Math.floor((Date.now() - ms) / 60000);
+  if (diffMin < 1)  return 'Just now';
+  if (diffMin < 60) return diffMin + 'm ago';
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24)  return diffHr + 'h ago';
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7)  return diffDay + 'd ago';
+  return new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function renderNotifications() {
+  const el = document.getElementById('notif-list');
+  if (!el) return;
+  // Sheet rows are append-only (oldest first) — reverse for a newest-first feed.
+  const rows = (store.activityLog || []).slice().reverse();
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-title">No activity yet</div><div class="empty-desc">Orders, team changes, and outreach across StoryOS will show up here.</div></div>';
+  } else {
+    el.innerHTML = rows.slice(0, 150).map(r => {
+      const cat = (r.Category || 'System').trim();
+      const icon = NOTIF_ICONS[cat] || '🔔';
+      return `
+        <div class="notif-row">
+          <div class="notif-icon">${icon}</div>
+          <div class="notif-body">
+            <div class="notif-msg">${esc(r.Message)}</div>
+            <div class="notif-meta">${esc(r.Actor || 'System')} · ${relativeTime(r.Timestamp)}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+  if (rows.length) localStorage.setItem('sos_notif_last_seen', rows[0].Timestamp || '');
+  updateNotifBadge();
+}
+
+function updateNotifBadge() {
+  const b = document.getElementById('notif-badge');
+  if (!b) return;
+  const lastSeenMs = parseActivityTs(localStorage.getItem('sos_notif_last_seen'));
+  const unread = (store.activityLog || []).filter(r => parseActivityTs(r.Timestamp) > lastSeenMs).length;
+  b.textContent = unread > 99 ? '99+' : unread;
+  b.style.display = unread ? 'inline' : 'none';
 }
 
 // ── FOUNDER CHAT ──────────────────────────────
@@ -1916,6 +2011,7 @@ function renderAll() {
   renderProducts();
   renderB2B();
   renderHomeWidgets();
+  updateNotifBadge();
   // Instagram refreshes on demand only (avoid burning API calls on every sync)
 }
 
@@ -2358,9 +2454,16 @@ async function saveOrderEdit() {
   if (!store.orders) store.orders = [];
   if (orderEditMode === 'add') {
     store.orders.push(fields);
+    logActivity('Orders', actorName() + ' added a new order — #' + fields['Order ID'] + (fields['Customer Name'] ? ' for ' + fields['Customer Name'] : ''));
   } else {
     const idx = store.orders.findIndex(o => o['Order ID'] === orderEditOrigId);
+    const prevStatus = idx >= 0 ? store.orders[idx]['Order Status'] : null;
     if (idx >= 0) store.orders[idx] = Object.assign({}, store.orders[idx], fields);
+    if (fields['Order Status'] && prevStatus && fields['Order Status'] !== prevStatus) {
+      logActivity('Orders', actorName() + ' marked order #' + orderEditOrigId + ' as ' + fields['Order Status']);
+    } else {
+      logActivity('Orders', actorName() + ' updated order #' + orderEditOrigId);
+    }
   }
   closeOrderEditModal();
   renderOrders();
@@ -2391,6 +2494,7 @@ async function deleteOrderEdit() {
   renderOrders();
   renderHomeStats();
   renderRevenue();
+  logActivity('Orders', actorName() + ' deleted order #' + orderEditOrigId);
 }
 
 function openOrderById(orderId) {
@@ -2667,11 +2771,14 @@ function addSocialIdea() {
   dateEl.value = '';
   capEl.value = '';
   renderSocial();
+  logActivity('Social', actorName() + ' added a new post idea for ' + date + ' — “' + caption.slice(0, 60) + (caption.length > 60 ? '…' : '') + '”');
 }
 
 function deleteSocialIdea(id) {
+  const idea = getSocialIdeas().find(i => i.id === id);
   saveSocialIdeas(getSocialIdeas().filter(i => i.id !== id));
   renderSocial();
+  if (idea) logActivity('Social', actorName() + ' removed the post idea for ' + idea['Date']);
 }
 
 function renderSocial() {
@@ -3082,6 +3189,7 @@ async function saveB2BEdit() {
   if (idx >= 0) contacts[idx] = Object.assign({}, contacts[idx], fields);
   closeB2BEditModal();
   renderB2B();
+  logActivity('B2B', actorName() + ' updated contact details for ' + b2bEditOrigName + ' (' + b2bEditSheet + ')');
 }
 
 async function deleteB2BEdit() {
@@ -3095,6 +3203,7 @@ async function deleteB2BEdit() {
   if (idx >= 0) contacts.splice(idx, 1);
   closeB2BEditModal();
   renderB2B();
+  logActivity('B2B', actorName() + ' removed ' + b2bEditOrigName + ' from ' + b2bEditSheet);
 }
 
 function switchB2B(tab, btn) {
@@ -3157,6 +3266,7 @@ function saveTeamMember() {
   saveTeamData(team);
   renderTeam();
   closeTeamModal();
+  logActivity('Team', actorName() + (idx === -1 ? ' added ' + name + ' to the Team page' : ' updated ' + name + '’s profile on the Team page'));
 }
 
 function deleteTeamMember() {
@@ -3168,6 +3278,7 @@ function deleteTeamMember() {
   saveTeamData(team);
   renderTeam();
   closeTeamModal();
+  logActivity('Team', actorName() + ' removed ' + name + ' from the Team page');
 }
 
 function closeTeamModal() { document.getElementById('team-modal').classList.remove('show'); }
@@ -3177,6 +3288,7 @@ const MODULE_LABELS = {
   home: 'Home', orders: 'Orders', revenue: 'Revenue & P&L', products: 'Products',
   b2b: 'B2B Outreach', social: 'Social Calendar', tasks: 'Tasks', team: 'Team',
   'social-insights': 'Social Insights', conversations: 'Conversations',
+  notifications: 'Notifications',
 };
 
 async function renderTeamAccessList() {
@@ -3255,6 +3367,7 @@ async function deleteTeamAccessMember() {
 
   closeTeamAccessModal();
   renderTeamAccessList();
+  logActivity('Team', actorName() + ' removed Team Access for ' + email);
 }
 
 async function saveTeamAccessMember() {
@@ -3271,7 +3384,12 @@ async function saveTeamAccessMember() {
     : await postToSheet({ action: 'addRow', sheet: 'Team Access', fields });
   if (!result.ok) return;
 
-  if (!origEmail) sendInviteEmail(name, email);
+  if (!origEmail) {
+    sendInviteEmail(name, email);
+    logActivity('Team', actorName() + ' added ' + name + ' (' + email + ') to Team Access');
+  } else {
+    logActivity('Team', actorName() + ' updated Team Access permissions for ' + name);
+  }
 
   closeTeamAccessModal();
   renderTeamAccessList();
