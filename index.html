@@ -57,17 +57,23 @@
     }
     h1,h2,h3,h4,h5 { font-family: 'PT Serif', Georgia, serif; font-weight: 700; }
 
-    /* The webfonts' ₹ glyph renders incorrectly in most browsers — force system fonts (which render it correctly) for just that one character, everywhere these fonts are used. */
+    /* The webfonts' ₹ glyph renders incorrectly — force a font known to render it
+       correctly for just that one character, everywhere these fonts are used.
+       This must be a downloaded webfont (not local()): local() depends on the
+       device having a matching system font installed under that exact name,
+       which is unreliable on mobile (iOS/Android font names don't match desktop
+       ones) — that's why the earlier local()-only fix worked on desktop but not
+       on phones. A url() source works identically on every device. */
     @font-face {
       font-family: 'PT Serif';
-      src: local('Noto Sans'), local('Arial Unicode MS'), local('Arial'), local('Helvetica Neue'), local('Helvetica'), local('Segoe UI');
+      src: url('https://fonts.gstatic.com/s/notosans/v42/o-0bIpQlx3QUlC5A4PNB6Ryti20_6n1iPHjc5a_du3mhPy1Fig.woff2') format('woff2');
       unicode-range: U+20B9;
       font-weight: 400 700;
       font-style: normal;
     }
     @font-face {
       font-family: 'Work Sans';
-      src: local('Noto Sans'), local('Arial Unicode MS'), local('Arial'), local('Helvetica Neue'), local('Helvetica'), local('Segoe UI');
+      src: url('https://fonts.gstatic.com/s/notosans/v42/o-0bIpQlx3QUlC5A4PNB6Ryti20_6n1iPHjc5a_du3mhPy1Fig.woff2') format('woff2');
       unicode-range: U+20B9;
       font-weight: 400 700;
       font-style: normal;
