@@ -1249,7 +1249,7 @@
     <div class="form-group"><label class="form-label">Name</label><input type="text" id="tm-name" class="form-input" placeholder="Full name"></div>
     <div class="form-group"><label class="form-label">Role / Title</label><input type="text" id="tm-role" class="form-input" placeholder="e.g. Creative Director"></div>
     <div class="form-group"><label class="form-label">Responsibilities</label><textarea id="tm-resp" class="form-input" rows="3" placeholder="Key responsibilities…"></textarea></div>
-    <input type="hidden" id="tm-idx" value="-1">
+    <input type="hidden" id="tm-orig-name" value="">
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeTeamModal()">Cancel</button>
       <button class="btn-danger" id="tm-del-btn" onclick="deleteTeamMember()" style="display:none">Delete</button>
@@ -1368,6 +1368,8 @@ const store = {
   weddingPlanners: null,
   corporates:      null,
   activityLog:     null,
+  team:            null,
+  tasks:           null,
 };
 
 // Working copies for filter/detail
@@ -1700,8 +1702,11 @@ async function syncAll() {
     ['Wedding Planners',     'weddingPlanners'],
     ['Corporates',           'corporates'],
     ['Activity Log',         'activityLog'],
+    ['Team',                 'team'],
+    ['Tasks',                'tasks'],
   ];
   await Promise.allSettled(tabs.map(([tab, key]) => fetchTab(tab, key)));
+  await migrateLocalDataIfNeeded();
 
   renderAll();
 
@@ -1746,8 +1751,45 @@ async function fetchTab(tabName, storeKey) {
   }
 }
 
+// Team and Tasks used to live only in this browser's localStorage — moving
+// them to the shared Sheet means whatever was sitting in localStorage would
+// otherwise silently vanish the moment the Sheet (now the source of truth)
+// comes back empty. Runs once per browser: if the Sheet has nothing yet but
+// this browser has local data, push it up before anything renders.
+async function migrateLocalDataIfNeeded() {
+  if (!SYNC_URL) return;
+
+  if (!localStorage.getItem('sos_team_migrated')) {
+    try {
+      const local = JSON.parse(localStorage.getItem('sos_team') || 'null');
+      if (Array.isArray(local) && local.length && (!store.team || !store.team.length)) {
+        for (const m of local) {
+          if (!m || !m.name) continue;
+          await postToSheet({ action: 'addRow', sheet: 'Team', fields: { Name: m.name, Role: m.role || '', Responsibilities: m.resp || '' } });
+        }
+        await fetchTab('Team', 'team');
+      }
+      localStorage.setItem('sos_team_migrated', '1');
+    } catch (e) { console.error('Team migration failed', e); }
+  }
+
+  if (!localStorage.getItem('sos_tasks_migrated')) {
+    try {
+      const local = JSON.parse(localStorage.getItem('sos_tasks') || 'null');
+      if (Array.isArray(local) && local.length && (!store.tasks || !store.tasks.length)) {
+        for (const t of local) {
+          if (!t || !t.text) continue;
+          await postToSheet({ action: 'addRow', sheet: 'Tasks', fields: { ID: t.id || String(Date.now()), Text: t.text, Category: t.cat || 'This Week', Done: t.done ? 'Yes' : 'No' } });
+        }
+        await fetchTab('Tasks', 'tasks');
+      }
+      localStorage.setItem('sos_tasks_migrated', '1');
+    } catch (e) { console.error('Tasks migration failed', e); }
+  }
+}
+
 // ── NOTIFICATIONS ─────────────────────────────
-const NOTIF_ICONS = { Team: '👤', Orders: '📦', B2B: '🤝', Social: '📅', System: '⚙️' };
+const NOTIF_ICONS = { Team: '👤', Orders: '📦', B2B: '🤝', Social: '📅', System: '⚙️', Tasks: '✅' };
 
 function actorName() { return (currentUser && currentUser.name) || 'Someone'; }
 
@@ -1915,66 +1957,70 @@ function executeAgentAction(action) {
   }
 }
 
-function executeTaskAction(op, payload) {
-  const tasks = getTasks();
-
+async function executeTaskAction(op, payload) {
   if (op === 'add') {
     const text = (payload.text || '').trim();
     if (!text) return;
     const cat = payload.cat === 'Urgent' ? 'Urgent' : 'This Week';
-    tasks.push({ id: String(Date.now()), text, cat, done: false });
-    saveTasks(tasks);
+    const id = String(Date.now());
+    const result = await postToSheet({ action: 'addRow', sheet: 'Tasks', fields: { ID: id, Text: text, Category: cat, Done: 'No' } });
+    if (!result.ok) return;
+    if (!store.tasks) store.tasks = [];
+    store.tasks.push({ ID: id, Text: text, Category: cat, Done: 'No' });
     renderTasks();
     renderHomeTasksWidget();
     appendChatBubble('✅ Added task: "' + text + '" (' + cat + ')', 'action');
   } else if (op === 'update') {
-    const t = tasks.find(x => x.id === payload.id);
-    if (t) {
-      t.done = true;
-      saveTasks(tasks);
-      renderTasks();
-      renderHomeTasksWidget();
-      appendChatBubble('✅ Marked "' + t.text + '" as done.', 'action');
-    }
+    const t = getTasks().find(x => x.id === payload.id);
+    if (!t) return;
+    const result = await postToSheet({ action: 'updateRow', sheet: 'Tasks', matchColumn: 'ID', matchValue: t.id, fields: { Done: 'Yes' } });
+    if (!result.ok) return;
+    const row = (store.tasks || []).find(r => r['ID'] === t.id);
+    if (row) row['Done'] = 'Yes';
+    renderTasks();
+    renderHomeTasksWidget();
+    appendChatBubble('✅ Marked "' + t.text + '" as done.', 'action');
   } else if (op === 'delete') {
-    const t = tasks.find(x => x.id === payload.id);
-    if (t) {
-      saveTasks(tasks.filter(x => x.id !== payload.id));
-      renderTasks();
-      renderHomeTasksWidget();
-      appendChatBubble('🗑️ Removed task: "' + t.text + '"', 'action');
-    }
+    const t = getTasks().find(x => x.id === payload.id);
+    if (!t) return;
+    const result = await postToSheet({ action: 'deleteRow', sheet: 'Tasks', matchColumn: 'ID', matchValue: t.id });
+    if (!result.ok) return;
+    store.tasks = (store.tasks || []).filter(r => r['ID'] !== t.id);
+    renderTasks();
+    renderHomeTasksWidget();
+    appendChatBubble('🗑️ Removed task: "' + t.text + '"', 'action');
   }
 }
 
-function executeTeamAction(op, payload) {
-  const team = getTeam();
-
+async function executeTeamAction(op, payload) {
   if (op === 'add') {
     const name = (payload.name || '').trim();
     if (!name) return;
-    team.push({ name, role: payload.role || '', resp: payload.resp || '' });
-    saveTeamData(team);
+    const fields = { Name: name, Role: payload.role || '', Responsibilities: payload.resp || '' };
+    const result = await postToSheet({ action: 'addRow', sheet: 'Team', fields });
+    if (!result.ok) return;
+    if (!store.team) store.team = [];
+    store.team.push(fields);
     renderTeam();
     appendChatBubble('✅ Added team member: "' + name + '"' + (payload.role ? ' (' + payload.role + ')' : ''), 'action');
   } else if (op === 'update') {
-    const idx = team.findIndex(m => (m.name || '').toLowerCase() === (payload.name || '').toLowerCase());
-    if (idx >= 0) {
-      if (payload.role) team[idx].role = payload.role;
-      if (payload.resp) team[idx].resp = payload.resp;
-      saveTeamData(team);
-      renderTeam();
-      appendChatBubble('✅ Updated team member: "' + team[idx].name + '"', 'action');
-    }
+    const existing = getTeam().find(m => (m.name || '').toLowerCase() === (payload.name || '').toLowerCase());
+    if (!existing) return;
+    const fields = { Name: existing.name, Role: payload.role || existing.role, Responsibilities: payload.resp || existing.resp };
+    const result = await postToSheet({ action: 'updateRow', sheet: 'Team', matchColumn: 'Name', matchValue: existing.name, fields });
+    if (!result.ok) return;
+    const idx = (store.team || []).findIndex(r => r['Name'] === existing.name);
+    if (idx >= 0) store.team[idx] = fields;
+    renderTeam();
+    appendChatBubble('✅ Updated team member: "' + existing.name + '"', 'action');
   } else if (op === 'delete') {
-    const idx = team.findIndex(m => (m.name || '').toLowerCase() === (payload.name || '').toLowerCase());
-    if (idx >= 0) {
-      const name = team[idx].name;
-      team.splice(idx, 1);
-      saveTeamData(team);
-      renderTeam();
-      appendChatBubble('🗑️ Removed team member: "' + name + '"', 'action');
-    }
+    const existing = getTeam().find(m => (m.name || '').toLowerCase() === (payload.name || '').toLowerCase());
+    if (!existing) return;
+    const result = await postToSheet({ action: 'deleteRow', sheet: 'Team', matchColumn: 'Name', matchValue: existing.name });
+    if (!result.ok) return;
+    store.team = (store.team || []).filter(r => r['Name'] !== existing.name);
+    renderTeam();
+    appendChatBubble('🗑️ Removed team member: "' + existing.name + '"', 'action');
   }
 }
 
@@ -2229,11 +2275,7 @@ function renderHomeTasksWidget() {
   `).join('');
 }
 
-function quickToggle(id, cb) {
-  const tasks = getTasks();
-  const t = tasks.find(x => x.id === id);
-  if (t) { t.done = cb.checked; saveTasks(tasks); renderTasks(); renderHomeTasksWidget(); }
-}
+function quickToggle(id, cb) { return toggleTask(id, cb); }
 
 // ── ORDERS ───────────────────────────────────
 function renderOrders() {
@@ -2807,22 +2849,27 @@ function renderRevenue() {
 }
 
 // ── TASKS ────────────────────────────────────
+// store.tasks holds raw Sheet rows ({ID, Text, Category, Done}); getTasks()
+// normalizes to the {id, text, cat, done} shape the rest of this file uses,
+// same split every other sheet-backed module (Orders, B2B) already follows.
 function getTasks() {
-  try { return JSON.parse(localStorage.getItem('sos_tasks') || '[]'); }
-  catch { return []; }
+  return (store.tasks || []).map(r => ({ id: r['ID'] || '', text: r['Text'] || '', cat: r['Category'] || 'This Week', done: /^y/i.test(r['Done'] || '') }));
 }
-function saveTasks(t) { localStorage.setItem('sos_tasks', JSON.stringify(t)); updateTaskBadge(); }
 
-function addTask() {
+async function addTask() {
   const input = document.getElementById('task-input');
   const text  = input.value.trim();
   if (!text) return;
-  const tasks = getTasks();
-  tasks.push({ id: String(Date.now()), text, cat: document.getElementById('task-cat').value, done: false });
-  saveTasks(tasks);
+  const cat = document.getElementById('task-cat').value;
+  const id  = String(Date.now());
+  const result = await postToSheet({ action: 'addRow', sheet: 'Tasks', fields: { ID: id, Text: text, Category: cat, Done: 'No' } });
+  if (!result.ok) return;
+  if (!store.tasks) store.tasks = [];
+  store.tasks.push({ ID: id, Text: text, Category: cat, Done: 'No' });
   input.value = '';
   renderTasks();
   renderHomeTasksWidget();
+  logActivity('Tasks', actorName() + ' added a task: “' + text + '”');
 }
 
 function renderTasks() {
@@ -2859,13 +2906,34 @@ function renderTasks() {
   updateTaskBadge();
 }
 
-function toggleTask(id, cb) {
-  const tasks = getTasks();
-  const t = tasks.find(x => x.id === id);
-  if (t) { t.done = cb.checked; saveTasks(tasks); renderTasks(); renderHomeTasksWidget(); }
+async function toggleTask(id, cb) {
+  const done = cb.checked;
+  const result = await postToSheet({ action: 'updateRow', sheet: 'Tasks', matchColumn: 'ID', matchValue: id, fields: { Done: done ? 'Yes' : 'No' } });
+  if (!result.ok) { cb.checked = !done; return; }
+  const row = (store.tasks || []).find(r => r['ID'] === id);
+  if (row) row['Done'] = done ? 'Yes' : 'No';
+  renderTasks();
+  renderHomeTasksWidget();
 }
-function deleteTask(id) { saveTasks(getTasks().filter(t => t.id !== id)); renderTasks(); renderHomeTasksWidget(); }
-function clearDone()    { saveTasks(getTasks().filter(t => !t.done)); renderTasks(); }
+
+async function deleteTask(id) {
+  const result = await postToSheet({ action: 'deleteRow', sheet: 'Tasks', matchColumn: 'ID', matchValue: id });
+  if (!result.ok) return;
+  store.tasks = (store.tasks || []).filter(r => r['ID'] !== id);
+  renderTasks();
+  renderHomeTasksWidget();
+}
+
+async function clearDone() {
+  const doneIds = (store.tasks || []).filter(r => /^y/i.test(r['Done'] || '')).map(r => r['ID']);
+  // Sequential on purpose — the sheet finds each row by re-scanning at call
+  // time, so parallel deletes on the same tab can race and hit the wrong row.
+  for (const id of doneIds) {
+    await postToSheet({ action: 'deleteRow', sheet: 'Tasks', matchColumn: 'ID', matchValue: id });
+  }
+  store.tasks = (store.tasks || []).filter(r => !doneIds.includes(r['ID']));
+  renderTasks();
+}
 let _dragTaskId = null;
 function onTaskDragStart(event, id) {
   _dragTaskId = id;
@@ -2885,15 +2953,18 @@ function onTaskDragLeave(event, cat) {
   const col = document.getElementById('drop-' + cat);
   if (col) col.classList.remove('drag-over');
 }
-function onTaskDrop(event, cat) {
+async function onTaskDrop(event, cat) {
   event.preventDefault();
   const col = document.getElementById('drop-' + cat);
   if (col) col.classList.remove('drag-over');
-  if (!_dragTaskId) return;
-  const tasks = getTasks();
-  const t = tasks.find(x => x.id === _dragTaskId);
-  if (t && t.cat !== cat) { t.cat = cat; saveTasks(tasks); }
+  const id = _dragTaskId;
   _dragTaskId = null;
+  if (!id) return;
+  const row = (store.tasks || []).find(r => r['ID'] === id);
+  if (!row || row['Category'] === cat) return;
+  const result = await postToSheet({ action: 'updateRow', sheet: 'Tasks', matchColumn: 'ID', matchValue: id, fields: { Category: cat } });
+  if (!result.ok) return;
+  row['Category'] = cat;
   renderTasks();
 }
 
@@ -3381,11 +3452,14 @@ const DEFAULT_TEAM = [
   { name: 'Saloni Garg', role: 'Founder & Creative Director', resp: 'Brand vision, creative direction, client relationships, product design, business strategy' },
 ];
 
+// store.team holds raw Sheet rows ({Name, Role, Responsibilities}); getTeam()
+// normalizes to the {name, role, resp} shape the rest of this file uses.
+// .slice() on the fallback so a caller pushing into it can never mutate the
+// shared DEFAULT_TEAM constant itself.
 function getTeam() {
-  try { return JSON.parse(localStorage.getItem('sos_team') || 'null') || DEFAULT_TEAM; }
-  catch { return DEFAULT_TEAM; }
+  const rows = (store.team || []).map(r => ({ name: r['Name'] || '', role: r['Role'] || '', resp: r['Responsibilities'] || '' })).filter(m => m.name);
+  return rows.length ? rows : DEFAULT_TEAM.slice();
 }
-function saveTeamData(t) { localStorage.setItem('sos_team', JSON.stringify(t)); }
 
 function renderTeam() {
   const team = getTeam();
@@ -3408,38 +3482,55 @@ function renderTeam() {
 function openTeamModal(idx) {
   const team = getTeam();
   const isNew = idx === -1;
+  const member = isNew ? null : team[idx];
   document.getElementById('team-modal-title').textContent = isNew ? 'Add Member' : 'Edit Member';
-  document.getElementById('tm-name').value = isNew ? '' : (team[idx]?.name || '');
-  document.getElementById('tm-role').value = isNew ? '' : (team[idx]?.role || '');
-  document.getElementById('tm-resp').value = isNew ? '' : (team[idx]?.resp || '');
-  document.getElementById('tm-idx').value  = idx;
+  document.getElementById('tm-name').value = member ? member.name : '';
+  document.getElementById('tm-role').value = member ? member.role : '';
+  document.getElementById('tm-resp').value = member ? member.resp : '';
+  // Matched by name (like B2B contacts), captured now rather than re-read from
+  // the array at save time, since the name field itself may be edited.
+  document.getElementById('tm-orig-name').value = member ? member.name : '';
   document.getElementById('tm-del-btn').style.display = isNew ? 'none' : 'block';
   document.getElementById('team-modal').classList.add('show');
 }
 
-function saveTeamMember() {
+async function saveTeamMember() {
   const name = document.getElementById('tm-name').value.trim();
   if (!name) return;
-  const team = getTeam();
-  const idx  = parseInt(document.getElementById('tm-idx').value);
-  const entry = { name, role: document.getElementById('tm-role').value.trim(), resp: document.getElementById('tm-resp').value.trim() };
-  if (idx === -1) team.push(entry); else team[idx] = entry;
-  saveTeamData(team);
+  const role = document.getElementById('tm-role').value.trim();
+  const resp = document.getElementById('tm-resp').value.trim();
+  const origName = document.getElementById('tm-orig-name').value;
+  const fields = { Name: name, Role: role, Responsibilities: resp };
+
+  const result = origName
+    ? await postToSheet({ action: 'updateRow', sheet: 'Team', matchColumn: 'Name', matchValue: origName, fields })
+    : await postToSheet({ action: 'addRow', sheet: 'Team', fields });
+  if (!result.ok) return;
+
+  if (!store.team) store.team = [];
+  if (origName) {
+    const idx = store.team.findIndex(r => r['Name'] === origName);
+    if (idx >= 0) store.team[idx] = fields; else store.team.push(fields);
+  } else {
+    store.team.push(fields);
+  }
   renderTeam();
   closeTeamModal();
-  logActivity('Team', actorName() + (idx === -1 ? ' added ' + name + ' to the Team page' : ' updated ' + name + '’s profile on the Team page'));
+  logActivity('Team', actorName() + (origName ? ' updated ' + name + '’s profile on the Team page' : ' added ' + name + ' to the Team page'));
 }
 
-function deleteTeamMember() {
-  const team = getTeam();
-  const idx  = parseInt(document.getElementById('tm-idx').value);
-  const name = (team[idx] && team[idx].name) || 'this member';
-  if (!confirm('Remove ' + name + ' from the Team tab? This cannot be undone.')) return;
-  team.splice(idx, 1);
-  saveTeamData(team);
+async function deleteTeamMember() {
+  const origName = document.getElementById('tm-orig-name').value;
+  if (!origName) return;
+  if (!confirm('Remove ' + origName + ' from the Team tab? This cannot be undone.')) return;
+
+  const result = await postToSheet({ action: 'deleteRow', sheet: 'Team', matchColumn: 'Name', matchValue: origName });
+  if (!result.ok) return;
+
+  store.team = (store.team || []).filter(r => r['Name'] !== origName);
   renderTeam();
   closeTeamModal();
-  logActivity('Team', actorName() + ' removed ' + name + ' from the Team page');
+  logActivity('Team', actorName() + ' removed ' + origName + ' from the Team page');
 }
 
 function closeTeamModal() { document.getElementById('team-modal').classList.remove('show'); }
