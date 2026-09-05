@@ -709,6 +709,11 @@
             <div class="stat-card"><span class="stat-icon">🔄</span><div class="stat-label">Active Orders</div><div class="stat-value" id="h-active">—</div></div>
           </div>
 
+          <div class="chart-card">
+            <div class="card-title">Revenue Trend — Last 6 Months</div>
+            <div class="chart-wrap chart-wrap-sm"><canvas id="home-revenue-trend-canvas"></canvas></div>
+          </div>
+
           <div class="two-col">
             <div class="card">
               <div class="card-title">Recent Orders</div>
@@ -721,6 +726,29 @@
               <div id="home-tasks-widget"></div>
               <button class="btn-add" style="width:100%; margin-top:12px; border-radius:var(--r-sm);" onclick="showTab('tasks', document.querySelector('[data-tab=tasks]'))">+ Add Task</button>
             </div>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <div class="card-title">B2B Follow-ups Due</div>
+              <div id="home-followups">
+                <div style="color:var(--text-dim); font-size:13px; text-align:center; padding:16px">Sync to load</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">This Week's Social Posts</div>
+              <div id="home-social-week">
+                <div style="color:var(--text-dim); font-size:13px; text-align:center; padding:16px">Sync to load</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Recent Activity</div>
+            <div id="home-activity">
+              <div style="color:var(--text-dim); font-size:13px; text-align:center; padding:16px">Sync to load</div>
+            </div>
+            <button class="btn-add" style="width:100%; margin-top:12px; border-radius:var(--r-sm);" onclick="showTab('notifications', document.querySelector('[data-tab=notifications]'))">View All Notifications</button>
           </div>
         </div>
 
@@ -2045,6 +2073,121 @@ function renderHomeStats() {
 function renderHomeWidgets() {
   renderHomeRecent();
   renderHomeTasksWidget();
+  renderHomeRevenueTrend();
+  renderHomeFollowups();
+  renderHomeSocialWeek();
+  renderHomeActivity();
+}
+
+let homeRevenueTrendChart = null;
+function renderHomeRevenueTrend() {
+  const orders = store.orders || [];
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString('en-IN', { month: 'short' }), rev: 0 });
+  }
+  orders.forEach(o => {
+    const t = parseOrderDate(o['Order Date']);
+    if (!t) return;
+    const d = new Date(t);
+    const m = months.find(m => m.year === d.getFullYear() && m.month === d.getMonth());
+    if (m) m.rev += num(o['Total Amount']);
+  });
+  homeRevenueTrendChart = renderChart('home-revenue-trend-canvas', homeRevenueTrendChart, {
+    type: 'bar',
+    data: { labels: months.map(m => m.label), datasets: [{ data: months.map(m => m.rev), backgroundColor: CHART_COLORS[0], borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => rupees(v) } } },
+    },
+  });
+}
+
+// Due today or overdue — "Follow-up Due" is auto-detected as a date field
+// elsewhere (detectB2BFieldType), so it's parsed the same way order dates are.
+function renderHomeFollowups() {
+  const el = document.getElementById('home-followups');
+  if (!el) return;
+  const now = Date.now();
+  const items = [];
+  const collect = (list, sheet) => (list || []).forEach(c => {
+    const due = c['Follow-up Due'];
+    if (!due) return;
+    const t = parseOrderDate(due);
+    if (!t || t > now) return;
+    const nameKey = Object.keys(c).find(k => /name/i.test(k));
+    items.push({ name: c[nameKey] || '?', sheet, due: t });
+  });
+  collect(store.weddingPlanners, 'Wedding Planners');
+  collect(store.corporates, 'Corporates');
+  items.sort((a, b) => a.due - b.due);
+
+  if (!items.length) {
+    el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;text-align:center;padding:16px">No follow-ups due</div>';
+    return;
+  }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  el.innerHTML = items.slice(0, 6).map(it => {
+    const dueDay = new Date(it.due); dueDay.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today - dueDay) / 86400000);
+    const label = diffDays <= 0 ? 'Due Today' : diffDays + 'd overdue';
+    return `
+      <div class="recent-row" onclick="showTab('b2b', document.querySelector('[data-tab=b2b]'))">
+        <div><div class="rr-name">${esc(it.name)}</div><div class="rr-sub">${esc(it.sheet)}</div></div>
+        <span class="badge badge-red">${label}</span>
+      </div>`;
+  }).join('');
+}
+
+function renderHomeSocialWeek() {
+  const el = document.getElementById('home-social-week');
+  if (!el) return;
+  const posts = (store.social || []).concat(getSocialIdeas());
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+  const upcoming = posts
+    .filter(p => { const d = p['Date'] ? new Date(p['Date']) : null; return d && !isNaN(d) && d >= today && d < weekEnd; })
+    .sort((a, b) => new Date(a['Date']) - new Date(b['Date']));
+
+  if (!upcoming.length) {
+    el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;text-align:center;padding:16px">Nothing scheduled this week</div>';
+    return;
+  }
+  el.innerHTML = upcoming.slice(0, 6).map(p => `
+    <div class="recent-row" onclick="showTab('social', document.querySelector('[data-tab=social]'))">
+      <div>
+        <div class="rr-name">${esc(p['Content Idea'] || p['Content Type'] || 'Post')}</div>
+        <div class="rr-sub">${esc(p['Content Type'] || '')} · ${esc(new Date(p['Date']).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }))}</div>
+      </div>
+      ${socialBadge(p['Status'])}
+    </div>`).join('');
+}
+
+// A compact, read-only preview of the Notifications feed — deliberately does
+// NOT call markNotificationsSeen(), so glancing at Home doesn't clear the
+// unread badge; only opening the actual Notifications tab does that.
+function renderHomeActivity() {
+  const el = document.getElementById('home-activity');
+  if (!el) return;
+  const rows = (store.activityLog || []).slice().reverse().slice(0, 5);
+  if (!rows.length) {
+    el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;text-align:center;padding:16px">No activity yet</div>';
+    return;
+  }
+  el.innerHTML = rows.map(r => {
+    const icon = NOTIF_ICONS[(r.Category || 'System').trim()] || '🔔';
+    return `
+      <div class="notif-row">
+        <div class="notif-icon">${icon}</div>
+        <div class="notif-body">
+          <div class="notif-msg">${esc(r.Message)}</div>
+          <div class="notif-meta">${esc(r.Actor || 'System')} · ${relativeTime(r.Timestamp)}</div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function renderHomeRecent() {
