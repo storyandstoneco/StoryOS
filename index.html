@@ -1569,8 +1569,8 @@ function bootApp() {
   document.getElementById('app').style.display = 'block';
   document.getElementById('chat-fab').style.display = 'flex';
   applyPermissions();
-  const founder = getTeam()[0];
-  if (founder) setText('masthead-avatar', (founder.name||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase());
+  const displayName = (currentUser && currentUser.name) || (getTeam()[0] && getTeam()[0].name);
+  if (displayName) setText('masthead-avatar', initialsOf(displayName));
   restoreSidebarCollapse();
   renderTasks();
   renderTeam();
@@ -3495,6 +3495,7 @@ function rupees(n) {
 }
 function pct(v, max) { return max ? ((v / max) * 100).toFixed(1) : 0; }
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function initialsOf(name) { return (name || '?').split(' ').map(w => w[0] || '').join('').slice(0, 2).toUpperCase(); }
 function esc(str) {
   return String(str||'')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
