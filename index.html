@@ -424,6 +424,8 @@
     .pipeline-stage-count { font-family: 'PT Serif', Georgia, serif; font-size: 24px; font-weight: 700; color: var(--navy); }
     .pipeline-stage.stage-cold .pipeline-stage-dot { background: var(--text-dim); }
     .pipeline-stage.stage-cold .pipeline-stage-count { color: var(--text-mid); }
+    .pipeline-stage.stage-mailsent .pipeline-stage-dot { background: var(--blue); }
+    .pipeline-stage.stage-mailsent .pipeline-stage-count { color: var(--blue); }
     .pipeline-stage.stage-followup .pipeline-stage-dot { background: var(--amber); }
     .pipeline-stage.stage-followup .pipeline-stage-count { color: var(--amber); }
     .pipeline-stage.stage-active .pipeline-stage-dot { background: var(--green); }
@@ -3325,7 +3327,8 @@ function renderB2BPipeline() {
 
   const stages = [
     { key: 'cold',      label: 'Cold',      cls: 'stage-cold',      test: s => /cold|no.?response|lost/i.test(s) },
-    { key: 'followup',  label: 'Follow Up', cls: 'stage-followup',  test: s => /follow.?up|pending/i.test(s) },
+    { key: 'mailsent',  label: 'Mail Sent', cls: 'stage-mailsent',  test: s => /mail sent|pitch sent/i.test(s) },
+    { key: 'followup',  label: 'Follow Up', cls: 'stage-followup',  test: s => /follow.?up/i.test(s) },
     { key: 'active',    label: 'Active',    cls: 'stage-active',    test: s => /active|warm|talking|in.?progress/i.test(s) },
     { key: 'converted', label: 'Converted', cls: 'stage-converted', test: s => /converted|won|closed/i.test(s) },
   ];
@@ -3738,10 +3741,16 @@ function socialBadge(s) {
 }
 function b2bBadge(s) {
   if (!s) return '<span class="badge badge-grey">—</span>';
-  if (/converted|won|closed/i.test(s))           return '<span class="badge badge-green">Converted</span>';
+  // Order matters: "Mail Sent - Pending Reply" contains the word "pending",
+  // which used to false-match the Follow Up test below — every freshly-pitched
+  // contact showed as needing a follow-up before one had even been sent.
+  // "follow.?up" alone (no longer "|pending") only matches an actual follow-up.
+  if (/converted|won|closed/i.test(s))             return '<span class="badge badge-green">Converted</span>';
   if (/active|warm|talking|in.?progress/i.test(s)) return '<span class="badge badge-blue">Active</span>';
-  if (/follow.?up|pending/i.test(s))             return '<span class="badge badge-amber">Follow Up</span>';
-  if (/cold|no.?response|lost/i.test(s))         return '<span class="badge badge-grey">Cold</span>';
+  if (/follow.?up/i.test(s))                       return '<span class="badge badge-amber">Follow Up</span>';
+  if (/mail sent|pitch sent/i.test(s))             return '<span class="badge badge-grey">Mail Sent</span>';
+  if (/cold|no.?response|lost/i.test(s))           return '<span class="badge badge-grey">Cold</span>';
+  if (/new lead/i.test(s))                         return '<span class="badge badge-grey">New Lead</span>';
   return `<span class="badge badge-grey">${esc(s)}</span>`;
 }
 
