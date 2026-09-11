@@ -2191,7 +2191,7 @@ function renderHomeFollowups() {
 function renderHomeSocialWeek() {
   const el = document.getElementById('home-social-week');
   if (!el) return;
-  const posts = (store.social || []).concat(getSocialIdeas());
+  const posts = getAllSocialPosts();
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
   const upcoming = posts
@@ -2982,6 +2982,10 @@ function getSocialIdeas() {
   catch { return []; }
 }
 function saveSocialIdeas(ideas) { localStorage.setItem('sos_social_ideas', JSON.stringify(ideas)); }
+// Synced sheet posts + locally-added ideas, combined — every calendar render
+// must use this (not store.social alone), or ideas added below the calendar
+// vanish from the grid the moment you change month or click a day.
+function getAllSocialPosts() { return (store.social || []).concat(getSocialIdeas()); }
 
 function addSocialIdea() {
   const dateEl = document.getElementById('soc-idea-date');
@@ -3016,7 +3020,7 @@ function deleteSocialIdea(id) {
 function renderSocial() {
   const synced = store.social;
   const ideas  = getSocialIdeas();
-  const posts  = (synced || []).concat(ideas);
+  const posts  = getAllSocialPosts();
 
   if (synced === null && !ideas.length) {
     document.getElementById('social-container').innerHTML = `
@@ -3063,23 +3067,23 @@ function calShiftMonth(delta) {
   calMonthOffset += delta;
   calSelectedDate = null;
   calUpdateAgendaTitle();
-  renderSocialCalendarGrid(store.social || []);
-  paintSocialPosts(store.social || []);
+  renderSocialCalendarGrid(getAllSocialPosts());
+  paintSocialPosts(getAllSocialPosts());
 }
 
 function calSelectDay(key, hasPosts) {
   if (!hasPosts) return;
   calSelectedDate = calSelectedDate === key ? null : key;
   calUpdateAgendaTitle();
-  renderSocialCalendarGrid(store.social || []);
-  paintSocialPosts(store.social || []);
+  renderSocialCalendarGrid(getAllSocialPosts());
+  paintSocialPosts(getAllSocialPosts());
 }
 
 function calClearDaySelection() {
   calSelectedDate = null;
   calUpdateAgendaTitle();
-  renderSocialCalendarGrid(store.social || []);
-  paintSocialPosts(store.social || []);
+  renderSocialCalendarGrid(getAllSocialPosts());
+  paintSocialPosts(getAllSocialPosts());
 }
 
 function renderSocialCalendarGrid(posts) {
@@ -3186,7 +3190,7 @@ function filterSocial(status, btn) {
   socialFilter = status;
   document.querySelectorAll('#soc-filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  if (store.social) paintSocialPosts(store.social);
+  paintSocialPosts(getAllSocialPosts());
 }
 
 // ── PRODUCTS ─────────────────────────────────
