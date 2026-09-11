@@ -361,18 +361,21 @@
     .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
     .cal-weekday { text-align: center; font-family: 'Work Sans', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-dim); padding-bottom: 4px; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
-    .cal-cell { min-height: 74px; background: var(--card-bg); padding: 6px 7px; cursor: pointer; transition: border-color .15s, background .15s; border: 2px solid transparent; }
+    .cal-cell { min-height: 96px; background: var(--card-bg); padding: 6px 7px; cursor: pointer; transition: border-color .15s, background .15s; border: 2px solid transparent; }
     .cal-cell:hover { background: var(--amber-bg); }
     .cal-cell.other-month { opacity: .4; }
     .cal-cell.today { border-color: var(--terra); }
     .cal-cell.selected { background: var(--amber-bg); border-color: var(--terra); }
     .cal-cell-num { font-family: 'Work Sans', sans-serif; font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 5px; }
-    .cal-cell-dots { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
-    .cal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .cal-dot.posted { background: var(--green); }
-    .cal-dot.scheduled { background: var(--amber); }
-    .cal-dot.draft { background: var(--text-dim); }
-    .cal-dot-more { font-family: 'Work Sans', sans-serif; font-size: 9px; font-weight: 700; color: var(--text-mid); }
+    .cal-cell-posts { display: flex; flex-direction: column; gap: 3px; }
+    .cal-post-chip {
+      font-family: 'Work Sans', sans-serif; font-size: 10px; font-weight: 600; line-height: 1.3; color: var(--text-mid);
+      padding: 2px 5px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      border-left: 3px solid var(--text-dim); background: rgba(33,30,26,.04);
+    }
+    .cal-post-chip.posted { border-left-color: var(--green); color: var(--green); background: var(--green-bg); }
+    .cal-post-chip.scheduled { border-left-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+    .cal-post-more { font-family: 'Work Sans', sans-serif; font-size: 9px; font-weight: 700; color: var(--text-mid); padding-left: 5px; }
     .cal-agenda-label { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 
     /* ── PRODUCT TABLE ── */
@@ -2195,18 +2198,19 @@ function renderHomeSocialWeek() {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
   const upcoming = posts
-    .filter(p => { const d = p['Date'] ? new Date(p['Date']) : null; return d && !isNaN(d) && d >= today && d < weekEnd; })
-    .sort((a, b) => new Date(a['Date']) - new Date(b['Date']));
+    .map(p => ({ p, d: parseSocialDate(p['Date']) }))
+    .filter(({ d }) => d && d >= today && d < weekEnd)
+    .sort((a, b) => a.d - b.d);
 
   if (!upcoming.length) {
     el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;text-align:center;padding:16px">Nothing scheduled this week</div>';
     return;
   }
-  el.innerHTML = upcoming.slice(0, 6).map(p => `
+  el.innerHTML = upcoming.slice(0, 6).map(({ p, d }) => `
     <div class="recent-row" onclick="showTab('social', document.querySelector('[data-tab=social]'))">
       <div>
-        <div class="rr-name">${esc(p['Content Idea'] || p['Content Type'] || 'Post')}</div>
-        <div class="rr-sub">${esc(p['Content Type'] || '')} · ${esc(new Date(p['Date']).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }))}</div>
+        <div class="rr-name">${esc(socialCaption(p) || socialPostType(p) || 'Post')}</div>
+        <div class="rr-sub">${esc(socialPostType(p))} · ${esc(d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }))}</div>
       </div>
       ${socialBadge(p['Status'])}
     </div>`).join('');
@@ -2987,6 +2991,23 @@ function saveSocialIdeas(ideas) { localStorage.setItem('sos_social_ideas', JSON.
 // vanish from the grid the moment you change month or click a day.
 function getAllSocialPosts() { return (store.social || []).concat(getSocialIdeas()); }
 
+// Locally-added ideas use "Caption"/"Post Type"; the synced Social Media
+// Calendar sheet uses "Content Idea"/"Content Type" for the same concepts.
+// Every display spot must check both, or synced posts render blank text.
+function socialCaption(p) { return p['Caption'] || p['Content Idea'] || ''; }
+function socialPostType(p) { return p['Post Type'] || p['Content Type'] || ''; }
+
+// The sheet stores dates as "8 Mar" with no year. JS's Date constructor
+// silently parses that as the year 2001, so every synced post would fail
+// every "is this in the currently-viewed month" check and never appear on
+// the calendar at all. Assume the current year when none is present.
+function parseSocialDate(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  const d = /\d{4}/.test(s) ? new Date(s) : new Date(s + ' ' + new Date().getFullYear());
+  return isNaN(d) ? null : d;
+}
+
 function addSocialIdea() {
   const dateEl = document.getElementById('soc-idea-date');
   const capEl  = document.getElementById('soc-idea-caption');
@@ -3098,8 +3119,8 @@ function renderSocialCalendarGrid(posts) {
 
   const byDay = {};
   (posts || []).forEach(p => {
-    const d = p['Date'] ? new Date(p['Date']) : null;
-    if (!d || isNaN(d) || d.getFullYear() !== y || d.getMonth() !== m) return;
+    const d = parseSocialDate(p['Date']);
+    if (!d || d.getFullYear() !== y || d.getMonth() !== m) return;
     const key = calDateKey(d);
     (byDay[key] = byDay[key] || []).push(p);
   });
@@ -3118,18 +3139,19 @@ function renderSocialCalendarGrid(posts) {
   grid.innerHTML = cells.map(c => {
     if (c.otherMonth) return `<div class="cal-cell other-month"><div class="cal-cell-num">${c.num}</div></div>`;
     const dayPosts = byDay[c.key] || [];
-    const dots = dayPosts.slice(0, 4).map(p => {
-      const st  = (p['Status']||'').toLowerCase();
-      const cls = /posted/.test(st) ? 'posted' : /schedul/.test(st) ? 'scheduled' : 'draft';
-      return `<span class="cal-dot ${cls}"></span>`;
+    const chips = dayPosts.slice(0, 3).map(p => {
+      const st   = (p['Status']||'').toLowerCase();
+      const cls  = /posted/.test(st) ? 'posted' : /schedul/.test(st) ? 'scheduled' : 'draft';
+      const text = socialCaption(p) || socialPostType(p) || 'Untitled';
+      return `<div class="cal-post-chip ${cls}" title="${esc(text)}">${esc(text)}</div>`;
     }).join('');
-    const more = dayPosts.length > 4 ? `<span class="cal-dot-more">+${dayPosts.length-4}</span>` : '';
+    const more = dayPosts.length > 3 ? `<div class="cal-post-more">+${dayPosts.length - 3} more</div>` : '';
     const classes = ['cal-cell'];
     if (c.key === todayKey) classes.push('today');
     if (c.key === calSelectedDate) classes.push('selected');
     return `<div class="${classes.join(' ')}" onclick="calSelectDay('${c.key}', ${dayPosts.length > 0})">
       <div class="cal-cell-num">${c.num}</div>
-      <div class="cal-cell-dots">${dots}${more}</div>
+      <div class="cal-cell-posts">${chips}${more}</div>
     </div>`;
   }).join('');
 }
@@ -3138,8 +3160,8 @@ function paintSocialPosts(posts) {
   const now = new Date();
   const viewDate = new Date(now.getFullYear(), now.getMonth() + calMonthOffset, 1);
   let filtered = (posts || []).filter(p => {
-    const d = p['Date'] ? new Date(p['Date']) : null;
-    return d && !isNaN(d) && d.getFullYear() === viewDate.getFullYear() && d.getMonth() === viewDate.getMonth();
+    const d = parseSocialDate(p['Date']);
+    return d && d.getFullYear() === viewDate.getFullYear() && d.getMonth() === viewDate.getMonth();
   });
 
   filtered = socialFilter === 'All'
@@ -3148,8 +3170,8 @@ function paintSocialPosts(posts) {
 
   if (calSelectedDate) {
     filtered = filtered.filter(p => {
-      const d = p['Date'] ? new Date(p['Date']) : null;
-      return d && !isNaN(d) && calDateKey(d) === calSelectedDate;
+      const d = parseSocialDate(p['Date']);
+      return d && calDateKey(d) === calSelectedDate;
     });
   }
 
@@ -3161,11 +3183,13 @@ function paintSocialPosts(posts) {
     return;
   }
 
-  const sorted = [...filtered].sort((a, b) => new Date(a['Date']||0) - new Date(b['Date']||0));
+  const sorted = [...filtered].sort((a, b) => (parseSocialDate(a['Date'])||0) - (parseSocialDate(b['Date'])||0));
 
   c.innerHTML = sorted.map(p => {
-    const d     = p['Date'] ? new Date(p['Date']) : null;
-    const valid = d && !isNaN(d);
+    const d     = parseSocialDate(p['Date']);
+    const valid = !!d;
+    const platform = p['Platform'] || '';
+    const postType = socialPostType(p);
     return `
       <div class="cal-item">
         <div class="cal-date">
@@ -3174,12 +3198,12 @@ function paintSocialPosts(posts) {
         </div>
         <div class="cal-content">
           <div class="cal-meta">
-            <span class="cal-platform">${esc(p['Platform']||'')}</span>
-            ${p['Post Type'] ? `<span class="badge badge-grey">${esc(p['Post Type'])}</span>` : ''}
+            ${platform ? `<span class="cal-platform">${esc(platform)}</span>` : ''}
+            ${postType ? `<span class="badge badge-grey">${esc(postType)}</span>` : ''}
             ${socialBadge(p['Status'])}
             ${p._local ? '<span class="badge badge-grey">Idea</span>' : ''}
           </div>
-          <div class="cal-caption">${esc(p['Caption']||'—')}</div>
+          <div class="cal-caption">${esc(socialCaption(p) || '—')}</div>
         </div>
         ${p._local ? `<button class="btn-del" onclick="deleteSocialIdea('${p.id}')" title="Delete idea">×</button>` : ''}
       </div>`;
