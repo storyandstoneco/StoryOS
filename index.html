@@ -254,6 +254,12 @@
       background: rgba(33,30,26,.04); font-family: 'Work Sans', sans-serif; font-size: 10.5px; font-weight: 700;
       text-transform: uppercase; letter-spacing: .04em; color: var(--text-mid); position: sticky; top: 0;
     }
+    .orders-table .orders-table-filter-row th { position: static; padding: 5px 8px; background: var(--card-bg); }
+    .orders-table-filter {
+      width: 100%; min-width: 84px; padding: 4px 6px; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: normal;
+      font-family: 'Work Sans', sans-serif; border: 1px solid var(--border); border-radius: 3px; background: #fff; color: var(--text);
+    }
+    .orders-table-filter:focus { outline: none; border-color: var(--terra); }
     .orders-table tbody tr { cursor: pointer; transition: background .12s; }
     .orders-table tbody tr:hover { background: var(--amber-bg); }
     .orders-table tbody tr:last-child td { border-bottom: none; }
@@ -2432,26 +2438,80 @@ function renderOrderTableCell(o, field) {
   return esc(v || '');
 }
 
+// Columns with a small, known set of real values get a dropdown of exactly
+// those values; everything else gets a substring search box. Both write into
+// the same orderTableFilters map so one matcher (see renderOrdersTableBody)
+// can apply all of them uniformly.
+const ORDER_TABLE_DISCRETE_FILTER_KEYS = ['Product Type', 'Variant', 'Payment Status', 'Order Status'];
+let orderTableFilters  = {}; // { [columnKey]: filterValue }
+let orderTableBaseRows = []; // the status-pill-filtered, sorted rows table filters apply on top of
+
+function renderOrderTableFilterControl(field) {
+  const current = orderTableFilters[field.key] || '';
+  if (ORDER_TABLE_DISCRETE_FILTER_KEYS.includes(field.key)) {
+    const values = distinctFieldValues(orderTableBaseRows, field.key);
+    return `<select class="orders-table-filter" onchange="setOrderTableFilter('${field.key}', this.value)">
+      <option value="">All</option>
+      ${values.map(v => `<option value="${esc(v)}" ${v === current ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+    </select>`;
+  }
+  return `<input class="orders-table-filter" type="text" placeholder="Search…" value="${esc(current)}" oninput="setOrderTableFilter('${field.key}', this.value)">`;
+}
+
+function setOrderTableFilter(key, value) {
+  orderTableFilters[key] = value;
+  renderOrdersTableBody(); // only the body re-renders, so a text filter never loses input focus mid-keystroke
+}
+
+function clearOrderTableFilters() {
+  orderTableFilters = {};
+  renderOrdersTableView(orderTableBaseRows); // full re-render so header controls visibly reset too
+}
+
 function renderOrdersTableView(filtered) {
   const el = document.getElementById('orders-table-view');
   if (!el) return;
+  orderTableBaseRows = filtered;
+
   if (!filtered.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No orders match this filter</div></div>`;
     return;
   }
   const cols = ORDER_TABLE_COLUMN_KEYS.map(key => ORDER_FIELDS.find(f => f.key === key)).filter(Boolean);
+  const hasActiveFilters = Object.values(orderTableFilters).some(v => v);
   el.innerHTML = `
+    ${hasActiveFilters ? `<div style="margin-bottom:8px"><a href="#" onclick="clearOrderTableFilters();return false" style="font-size:11.5px;color:var(--terra-dark)">Clear column filters ×</a></div>` : ''}
     <div class="orders-table-scroll">
       <table class="orders-table">
-        <thead><tr>${cols.map(f => `<th>${esc(f.label)}</th>`).join('')}</tr></thead>
-        <tbody>
-          ${filtered.map(o => `
-            <tr onclick="openOrderEditModal('${esc(o['Order ID']).replace(/'/g,"\\'")}')">
-              ${cols.map(f => `<td>${renderOrderTableCell(o, f)}</td>`).join('')}
-            </tr>`).join('')}
-        </tbody>
+        <thead>
+          <tr>${cols.map(f => `<th>${esc(f.label)}</th>`).join('')}</tr>
+          <tr class="orders-table-filter-row">${cols.map(f => `<th>${renderOrderTableFilterControl(f)}</th>`).join('')}</tr>
+        </thead>
+        <tbody id="orders-table-body"></tbody>
       </table>
     </div>`;
+  renderOrdersTableBody();
+}
+
+function renderOrdersTableBody() {
+  const tbody = document.getElementById('orders-table-body');
+  if (!tbody) return;
+  const cols = ORDER_TABLE_COLUMN_KEYS.map(key => ORDER_FIELDS.find(f => f.key === key)).filter(Boolean);
+
+  const rows = orderTableBaseRows.filter(o => Object.entries(orderTableFilters).every(([key, val]) => {
+    if (!val) return true;
+    const cellVal = String(o[key] || '');
+    return ORDER_TABLE_DISCRETE_FILTER_KEYS.includes(key)
+      ? cellVal === val
+      : cellVal.toLowerCase().includes(val.toLowerCase());
+  }));
+
+  tbody.innerHTML = rows.length
+    ? rows.map(o => `
+        <tr onclick="openOrderEditModal('${esc(o['Order ID']).replace(/'/g,"\\'")}')">
+          ${cols.map(f => `<td>${renderOrderTableCell(o, f)}</td>`).join('')}
+        </tr>`).join('')
+    : `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--text-dim);padding:20px">No orders match these filters</td></tr>`;
 }
 
 const ORDER_KANBAN_COLORS = { 'Pending':'var(--amber)', 'In Progress':'var(--blue)', 'Active':'var(--blue)', 'Delivered':'var(--green)', 'Delayed':'var(--red)', 'Cancelled':'var(--navy)' };
