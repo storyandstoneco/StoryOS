@@ -235,6 +235,48 @@
     .filter-btn:hover { border-color: var(--terra); color: var(--terra); }
     .filter-btn.active { background: var(--navy); border-color: var(--navy); color: var(--cream); }
 
+    /* ── ORDERS: VIEW SWITCHER (Cards / Table / Kanban) ── */
+    .view-switcher { display: inline-flex; border: 1.5px solid var(--border-strong); border-radius: var(--r-sm); overflow: hidden; }
+    .view-switch-btn {
+      padding: 7px 14px; border: none; border-right: 1px solid var(--border-strong);
+      background: var(--card-bg); font-family: 'Work Sans', sans-serif; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em; cursor: pointer; color: var(--text-mid); transition: all .15s;
+    }
+    .view-switch-btn:last-child { border-right: none; }
+    .view-switch-btn:hover { color: var(--terra); }
+    .view-switch-btn.active { background: var(--terra); color: var(--cream); }
+
+    /* ── ORDERS: TABLE VIEW ── */
+    .orders-table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--card-bg); }
+    .orders-table { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
+    .orders-table th, .orders-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); text-align: left; }
+    .orders-table thead th {
+      background: rgba(33,30,26,.04); font-family: 'Work Sans', sans-serif; font-size: 10.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em; color: var(--text-mid); position: sticky; top: 0;
+    }
+    .orders-table tbody tr { cursor: pointer; transition: background .12s; }
+    .orders-table tbody tr:hover { background: var(--amber-bg); }
+    .orders-table tbody tr:last-child td { border-bottom: none; }
+
+    /* ── ORDERS: KANBAN VIEW ── */
+    .order-kanban { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; }
+    .order-kan-col-wrap { flex: 0 0 240px; border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; background: var(--card-bg); display: flex; flex-direction: column; }
+    .order-kan-col-header {
+      display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; color: #fff;
+      font-family: 'Work Sans', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    }
+    .order-kan-col-count { background: rgba(255,255,255,.25); border-radius: 10px; padding: 1px 8px; font-size: 10px; }
+    .order-kan-col { padding: 10px; min-height: 120px; max-height: 560px; overflow-y: auto; transition: background .15s; }
+    .order-kan-col.drag-over { background: var(--amber-bg); }
+    .order-kan-card { background: var(--cream); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 10px 12px; margin-bottom: 8px; cursor: grab; }
+    .order-kan-card:active { cursor: grabbing; }
+    .order-kan-card.dragging { opacity: .4; }
+    .order-kan-card-id { font-family: 'Work Sans', sans-serif; font-size: 10.5px; color: var(--text-dim); font-weight: 700; }
+    .order-kan-card-name { font-family: 'PT Serif', Georgia, serif; font-weight: 700; font-size: 13px; margin-top: 2px; }
+    .order-kan-card-meta { font-size: 11px; color: var(--text-mid); margin-top: 2px; }
+    .order-kan-card-amt { font-family: 'PT Serif', Georgia, serif; font-weight: 700; font-size: 13px; color: var(--terra); margin-top: 4px; }
+    .order-kan-empty { font-size: 11px; color: var(--text-dim); text-align: center; padding: 16px 0; }
+
     /* ── CONNECT CARD (integrations) ── */
     .connect-card { display: flex; flex-direction: column; gap: 10px; padding: 18px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--r); height: 100%; }
     .connect-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -777,7 +819,14 @@
                 <button class="filter-btn" onclick="filterOrders('Delayed',this)">Delayed</button>
                 <button class="filter-btn" onclick="filterOrders('Cancelled',this)">Cancelled</button>
               </div>
-              <button class="btn-add" onclick="openOrderEditModal(null)">+ Add Order</button>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div class="view-switcher" id="ord-view-switcher">
+                  <button class="view-switch-btn active" data-view="cards"  onclick="setOrderViewMode('cards')">Cards</button>
+                  <button class="view-switch-btn"        data-view="table"  onclick="setOrderViewMode('table')">Table</button>
+                  <button class="view-switch-btn"        data-view="kanban" onclick="setOrderViewMode('kanban')">Kanban</button>
+                </div>
+                <button class="btn-add" onclick="openOrderEditModal(null)">+ Add Order</button>
+              </div>
             </div>
             <div id="orders-container">
               <div class="empty-state">
@@ -786,6 +835,8 @@
                 <div class="empty-desc">Click Sync to pull orders from your Google Sheet.</div>
               </div>
             </div>
+            <div id="orders-table-view" style="display:none"></div>
+            <div id="orders-kanban-view" style="display:none"></div>
           </div>
 
           <div id="orders-detail-view" style="display:none">
@@ -1381,6 +1432,7 @@ const store = {
 let filteredOrders  = [];
 let filteredSocial  = [];
 let orderFilter     = 'All';
+let orderViewMode   = (function () { try { return localStorage.getItem('sos_order_view') || 'cards'; } catch { return 'cards'; } })();
 let socialFilter    = 'All';
 let calMonthOffset  = 0;
 let calSelectedDate = null;
@@ -2298,6 +2350,7 @@ function renderOrders() {
   setText('ord-active',    orders.filter(o => !isDelivered(o) && !isCancelled(o)).length);
   setText('ord-unpaid',    orders.filter(o => (o['Payment Status']||'').toLowerCase() !== 'paid').length);
 
+  setOrderViewMode(orderViewMode);
   paintOrderCards(orders);
 }
 
@@ -2307,6 +2360,20 @@ function parseOrderDate(str) {
   const parts = str.split('/');
   if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
   return new Date(str).getTime() || 0;
+}
+
+// Cards / Table / Kanban are three layouts over the exact same filtered data —
+// all three are rendered every time (cheap at this data volume) and shown/hidden
+// with CSS, so switching views is instant and every existing save/delete/sync
+// refresh path (which only knows to call paintOrderCards) keeps all three current
+// without needing to know which one is visible.
+function setOrderViewMode(mode) {
+  orderViewMode = mode;
+  try { localStorage.setItem('sos_order_view', mode); } catch {}
+  document.querySelectorAll('#ord-view-switcher .view-switch-btn').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
+  document.getElementById('orders-container').style.display   = mode === 'cards'  ? '' : 'none';
+  document.getElementById('orders-table-view').style.display  = mode === 'table'  ? '' : 'none';
+  document.getElementById('orders-kanban-view').style.display = mode === 'kanban' ? '' : 'none';
 }
 
 function paintOrderCards(orders) {
@@ -2319,8 +2386,13 @@ function paintOrderCards(orders) {
     parseOrderDate(b['Order Date']) - parseOrderDate(a['Order Date']));
 
   filteredOrders = filtered;
-  const c = document.getElementById('orders-container');
+  renderOrdersCardsView(filtered);
+  renderOrdersTableView(filtered);
+  renderOrdersKanbanView(filtered);
+}
 
+function renderOrdersCardsView(filtered) {
+  const c = document.getElementById('orders-container');
   if (!filtered.length) {
     c.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">No orders match this filter</div></div>`;
     return;
@@ -2346,6 +2418,114 @@ function paintOrderCards(orders) {
       </div>
     </div>
   `).join('')}</div>`;
+}
+
+// A curated subset of ORDER_FIELDS — a spreadsheet-style view is meant to be
+// scanned at a glance, and all 22 stored fields as columns would defeat that.
+const ORDER_TABLE_COLUMN_KEYS = ['Order ID','Order Date','Customer Name','Phone','Product Type','Variant','Qty','Total Amount','Advance Paid','Balance','Payment Status','Order Status','Dispatch Date','Tracking No.'];
+
+function renderOrderTableCell(o, field) {
+  const v = o[field.key];
+  if (field.key === 'Order Status')   return statusBadge(v);
+  if (field.key === 'Payment Status') return payBadge(v, num(o['Balance']));
+  if (field.type === 'currency')      return v ? rupees(num(v)) : '';
+  return esc(v || '');
+}
+
+function renderOrdersTableView(filtered) {
+  const el = document.getElementById('orders-table-view');
+  if (!el) return;
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No orders match this filter</div></div>`;
+    return;
+  }
+  const cols = ORDER_TABLE_COLUMN_KEYS.map(key => ORDER_FIELDS.find(f => f.key === key)).filter(Boolean);
+  el.innerHTML = `
+    <div class="orders-table-scroll">
+      <table class="orders-table">
+        <thead><tr>${cols.map(f => `<th>${esc(f.label)}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${filtered.map(o => `
+            <tr onclick="openOrderEditModal('${esc(o['Order ID']).replace(/'/g,"\\'")}')">
+              ${cols.map(f => `<td>${renderOrderTableCell(o, f)}</td>`).join('')}
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+const ORDER_KANBAN_COLORS = { 'Pending':'var(--amber)', 'In Progress':'var(--blue)', 'Active':'var(--blue)', 'Delivered':'var(--green)', 'Delayed':'var(--red)', 'Cancelled':'var(--navy)' };
+
+function renderOrdersKanbanView(filtered) {
+  const el = document.getElementById('orders-kanban-view');
+  if (!el) return;
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">No orders match this filter</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="order-kanban">${ORDER_STATUS_OPTIONS.map(status => {
+    const items = filtered.filter(o => (o['Order Status']||'') === status);
+    const safeId = status.replace(/[^a-zA-Z0-9]/g, '_');
+    return `
+      <div class="order-kan-col-wrap">
+        <div class="order-kan-col-header" style="background:${ORDER_KANBAN_COLORS[status] || 'var(--text-dim)'}">
+          <span>${esc(status)}</span><span class="order-kan-col-count">${items.length}</span>
+        </div>
+        <div class="order-kan-col" id="okan-drop-${safeId}"
+             ondragover="onOrderDragOver(event,'${status}')" ondragleave="onOrderDragLeave(event,'${status}')" ondrop="onOrderDrop(event,'${status}')">
+          ${items.length ? items.map(o => {
+            const cardId = (o['Order ID']||'').replace(/[^a-zA-Z0-9]/g, '_');
+            const oid = esc(o['Order ID']).replace(/'/g,"\\'");
+            return `
+            <div class="order-kan-card" id="okan-card-${cardId}" draggable="true"
+                 ondragstart="onOrderDragStart(event,'${oid}')" onclick="openOrderEditModal('${oid}')">
+              <div class="order-kan-card-id">#${esc(o['Order ID'])}</div>
+              <div class="order-kan-card-name">${esc(o['Customer Name'])}</div>
+              <div class="order-kan-card-meta">${esc(o['Product Type']||'')}</div>
+              <div class="order-kan-card-amt">${rupees(num(o['Total Amount']))}</div>
+            </div>`;
+          }).join('') : '<div class="order-kan-empty">None</div>'}
+        </div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+let _dragOrderId = null;
+function onOrderDragStart(event, orderId) {
+  _dragOrderId = orderId;
+  event.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => {
+    const el = document.getElementById('okan-card-' + orderId.replace(/[^a-zA-Z0-9]/g, '_'));
+    if (el) el.classList.add('dragging');
+  }, 0);
+}
+function onOrderDragOver(event, status) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  const col = document.getElementById('okan-drop-' + status.replace(/[^a-zA-Z0-9]/g, '_'));
+  if (col) col.classList.add('drag-over');
+}
+function onOrderDragLeave(event, status) {
+  const col = document.getElementById('okan-drop-' + status.replace(/[^a-zA-Z0-9]/g, '_'));
+  if (col) col.classList.remove('drag-over');
+}
+async function onOrderDrop(event, status) {
+  event.preventDefault();
+  const col = document.getElementById('okan-drop-' + status.replace(/[^a-zA-Z0-9]/g, '_'));
+  if (col) col.classList.remove('drag-over');
+  const orderId = _dragOrderId;
+  _dragOrderId = null;
+  if (!orderId) return;
+  const order = (store.orders || []).find(o => o['Order ID'] === orderId);
+  if (!order || order['Order Status'] === status) return;
+
+  const result = await postToSheet({ action: 'updateRow', sheet: 'Orders', matchColumn: 'Order ID', matchValue: orderId, fields: { 'Order Status': status } });
+  if (!result.ok) return;
+  order['Order Status'] = status;
+  paintOrderCards(store.orders);
+  renderHomeStats();
+  renderRevenue();
+  logActivity('Orders', actorName() + ' moved order #' + orderId + ' to ' + status);
 }
 
 function filterOrders(status, btn) {
