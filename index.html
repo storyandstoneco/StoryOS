@@ -172,6 +172,7 @@
     }
     .topbar-left { display: flex; align-items: center; gap: 12px; }
     .topbar-title { font-family: 'PT Serif', Georgia, serif; font-size: 21px; font-weight: 700; color: var(--navy); }
+    .demo-mode-badge { font-size: 11px; font-weight: 700; letter-spacing: .03em; color: #b8701f; background: #f1e2cc; padding: 4px 10px; border-radius: 20px; margin-left: 4px; }
     .last-sync-label { font-size: 11px; color: var(--text-dim); }
     .topbar-right { display: flex; align-items: center; gap: 14px; }
     .topbar-clock-date { font-size: 12px; color: var(--text-mid); }
@@ -743,6 +744,7 @@
           <button class="hamburger" onclick="toggleSidebar()">☰</button>
           <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebarCollapse()" title="Collapse sidebar">‹</button>
           <div class="topbar-title" id="topbar-title">Home</div>
+          <span class="demo-mode-badge" id="demo-mode-badge" style="display:none">● Demo Data</span>
         </div>
         <div class="topbar-right">
           <div class="topbar-clock-date" id="topbar-clock-date"></div>
@@ -1291,6 +1293,10 @@
       <div style="font-size:11px;color:var(--text-mid);margin-top:6px;line-height:1.6">Lets you edit orders and B2B records here and have them save back to your real Google Sheet. See <span class="code-tag">tools/sheet-sync-webapp.gs</span> for the one-time setup script.</div>
     </div>
     <div class="form-group" style="border-top:1px solid var(--border);padding-top:16px">
+      <label class="form-label"><input type="checkbox" id="set-demo-mode" onchange="setDemoMode(this.checked)"> Demo Mode</label>
+      <div style="font-size:11px;color:var(--text-mid);margin-top:6px;line-height:1.6">Shows sample Orders &amp; Revenue data instead of your real business data — safe to use when demoing the platform to others. Every other module stays on your real data.</div>
+    </div>
+    <div class="form-group" style="border-top:1px solid var(--border);padding-top:16px">
       <label class="form-label">Signed in as</label>
       <div id="settings-current-user" style="font-size:13px;color:var(--text-mid);margin-bottom:10px"></div>
       <button class="btn-danger" style="width:100%" onclick="logOutFromSettings()">Log Out</button>
@@ -1412,6 +1418,22 @@ const INVITE_WEBHOOK_URL = 'https://salonigarg050300.app.n8n.cloud/webhook/story
 let API_KEY  = '';
 let SHEET_ID = DEFAULT_SHEET_ID;
 let SYNC_URL = '';
+
+// Demo Mode swaps Orders/Revenue over to sample sheet tabs (Demo Orders / Demo P&L)
+// so the platform can be shown to others without exposing real business data.
+let demoMode = (function () { try { return localStorage.getItem('sos_demo_mode') === '1'; } catch { return false; } })();
+function ordersSheetName() { return demoMode ? 'Demo Orders' : 'Orders'; }
+function pnlSheetName()    { return demoMode ? 'Demo P&L'    : 'P&L'; }
+function updateDemoBadge() {
+  const b = document.getElementById('demo-mode-badge');
+  if (b) b.style.display = demoMode ? '' : 'none';
+}
+function setDemoMode(on) {
+  demoMode = !!on;
+  try { localStorage.setItem('sos_demo_mode', demoMode ? '1' : '0'); } catch {}
+  updateDemoBadge();
+  syncAll();
+}
 
 // ── TEAM ACCESS / SIGN-IN ──────────────────────
 const ALL_MODULES = ['home','orders','revenue','products','b2b','social','tasks','team','social-insights','conversations','notifications'];
@@ -1662,6 +1684,7 @@ function bootApp() {
   document.getElementById('app').style.display = 'block';
   document.getElementById('chat-fab').style.display = 'flex';
   applyPermissions();
+  updateDemoBadge();
   const displayName = (currentUser && currentUser.name) || (getTeam()[0] && getTeam()[0].name);
   if (displayName) setText('masthead-avatar', initialsOf(displayName));
   restoreSidebarCollapse();
@@ -1759,8 +1782,8 @@ async function syncAll() {
   icon.classList.add('spinning');
 
   const tabs = [
-    ['Orders',               'orders'],
-    ['P&L',                  'pnl'],
+    [ordersSheetName(),      'orders'],
+    [pnlSheetName(),         'pnl'],
     ['Social Media Calendar','social'],
     ['Wedding Planners',     'weddingPlanners'],
     ['Corporates',           'corporates'],
@@ -2579,7 +2602,7 @@ async function onOrderDrop(event, status) {
   const order = (store.orders || []).find(o => o['Order ID'] === orderId);
   if (!order || order['Order Status'] === status) return;
 
-  const result = await postToSheet({ action: 'updateRow', sheet: 'Orders', matchColumn: 'Order ID', matchValue: orderId, fields: { 'Order Status': status } });
+  const result = await postToSheet({ action: 'updateRow', sheet: ordersSheetName(), matchColumn: 'Order ID', matchValue: orderId, fields: { 'Order Status': status } });
   if (!result.ok) return;
   order['Order Status'] = status;
   paintOrderCards(store.orders);
@@ -2893,8 +2916,8 @@ async function saveOrderEdit() {
   btn.textContent = 'Saving…';
 
   const result = orderEditMode === 'add'
-    ? await postToSheet({ action: 'addRow', sheet: 'Orders', fields })
-    : await postToSheet({ action: 'updateRow', sheet: 'Orders', matchColumn: 'Order ID', matchValue: orderEditOrigId, fields });
+    ? await postToSheet({ action: 'addRow', sheet: ordersSheetName(), fields })
+    : await postToSheet({ action: 'updateRow', sheet: ordersSheetName(), matchColumn: 'Order ID', matchValue: orderEditOrigId, fields });
 
   btn.disabled = false;
   btn.textContent = originalText;
@@ -2929,7 +2952,7 @@ async function deleteOrderEdit() {
   btn.disabled = true;
   btn.textContent = 'Deleting…';
 
-  const result = await postToSheet({ action: 'deleteRow', sheet: 'Orders', matchColumn: 'Order ID', matchValue: orderEditOrigId });
+  const result = await postToSheet({ action: 'deleteRow', sheet: ordersSheetName(), matchColumn: 'Order ID', matchValue: orderEditOrigId });
 
   btn.disabled = false;
   btn.textContent = 'Delete';
@@ -3021,8 +3044,8 @@ function renderRevenue() {
   } else {
     document.getElementById('pnl-detail').innerHTML = store.pnl === null
       ? `<div class="empty-state" style="padding:20px">
-           <div class="empty-title" style="font-size:15px">P&amp;L tab not found</div>
-           <div class="empty-desc">Create a sheet tab called <span class="code-tag">P&L</span> with columns: Category, Amount</div>
+           <div class="empty-title" style="font-size:15px">${esc(pnlSheetName())} tab not found</div>
+           <div class="empty-desc">Create a sheet tab called <span class="code-tag">${esc(pnlSheetName())}</span> with columns: Category, Amount</div>
          </div>`
       : '<div style="color:var(--text-dim);font-size:13px;text-align:center;padding:20px">P&amp;L sheet is empty</div>';
     if (revExpenseChart) { revExpenseChart.destroy(); revExpenseChart = null; }
@@ -3923,6 +3946,7 @@ function openSettings() {
   document.getElementById('set-key').value   = API_KEY;
   document.getElementById('set-sheet').value = SHEET_ID;
   document.getElementById('set-sync-url').value = SYNC_URL;
+  document.getElementById('set-demo-mode').checked = demoMode;
   const userLine = document.getElementById('settings-current-user');
   if (userLine) {
     userLine.textContent = currentUser
