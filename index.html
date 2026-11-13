@@ -1419,7 +1419,7 @@ const GOOGLE_CLIENT_ID = '525510937345-klsct99b575o1fafmck76clcd36b2qma.apps.goo
 // Baked in for the same reason as DEFAULT_API_KEY — every browser/device is a separate
 // localStorage, so without this each teammate would have to paste it in manually.
 const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbznPA0XI2kW160MghfMEhExU2HqBOH906dsUOnQ9Gp0P8PeXmY9PBZwt2Aa7vAWYIeruQ/exec';
-const INVITE_WEBHOOK_URL = 'https://salonigarg050300.app.n8n.cloud/webhook/storyos-invite';
+const INVITE_WEBHOOK_URL = 'https://substance-botany-overdrive.ngrok-free.dev/webhook/storyos-invite';
 let API_KEY  = '';
 let SHEET_ID = DEFAULT_SHEET_ID;
 let SYNC_URL = '';
@@ -1445,7 +1445,7 @@ const ALL_MODULES = ['home','orders','revenue','products','b2b','social','tasks'
 let currentUser = null; // { email, name, isAdmin, modules: Set<string> }
 
 // n8n webhook that powers the "Ask StoryOS" chat — see workflows/founder-chat-agent.json
-const CHAT_WEBHOOK_URL = 'https://salonigarg050300.app.n8n.cloud/webhook/founder-chat-agent';
+const CHAT_WEBHOOK_URL = 'https://substance-botany-overdrive.ngrok-free.dev/webhook/founder-chat-agent';
 const CHAT_GREETING = 'Hi! Ask me anything about your orders or tasks — or ask me to do something, like "add a task to follow up with the printer" or "mark order ORD-123 as delivered".';
 let chatHistory = [];
 
@@ -1775,7 +1775,7 @@ function sendInviteEmail(name, email) {
   // every field reads as undefined.
   fetch(INVITE_WEBHOOK_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
     body: JSON.stringify({ name, email })
   }).catch(() => {});
 }
@@ -2153,7 +2153,7 @@ async function sendChatMessage() {
   try {
     const res = await fetch(CHAT_WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({
         question,
         orders: canSee('orders') ? (store.orders || []) : [],
