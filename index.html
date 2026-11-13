@@ -1797,6 +1797,9 @@ async function syncAll() {
     ['Tasks',                'tasks'],
   ];
   await Promise.allSettled(tabs.map(([tab, key]) => fetchTab(tab, key)));
+  // Drop non-order rows (e.g. a SUM/total row at the bottom of the Orders tab) —
+  // without an Order ID they'd be counted as an extra order and double revenue.
+  if (Array.isArray(store.orders)) store.orders = store.orders.filter(o => (o['Order ID'] || '').trim());
   await migrateLocalDataIfNeeded();
 
   renderAll();
@@ -2203,7 +2206,7 @@ function renderHomeStats() {
   const orders = store.orders || [];
   setText('h-orders',  orders.length);
   setText('h-revenue', rupees(sum(orders, 'Total Amount')));
-  setText('h-unpaid',  rupees(sum(orders, 'Balance')));
+  setText('h-unpaid',  rupees(outstandingTotal(orders)));
   setText('h-active',  orders.filter(o => !isDelivered(o) && !isCancelled(o)).length);
 }
 
@@ -2991,7 +2994,7 @@ function renderRevenue() {
   const orders = store.orders || [];
   const totalRev    = sum(orders, 'Total Amount');
   const collected   = sum(orders, 'Advance Paid');
-  const outstanding = sum(orders, 'Balance');
+  const outstanding = outstandingTotal(orders);
   const aov         = orders.length ? totalRev / orders.length : 0;
 
   // Current month orders
@@ -4029,6 +4032,14 @@ function num(v) {
   return isNaN(n) ? 0 : n;
 }
 function sum(arr, key) { return arr.reduce((s, o) => s + num(o[key]), 0); }
+// Amount still owed on one order: 0 if Paid or Cancelled; else the Balance column
+// when it's filled in, otherwise Total Amount minus Advance Paid.
+function orderOutstanding(o) {
+  if ((o['Payment Status'] || '').toLowerCase() === 'paid' || isCancelled(o)) return 0;
+  if ((o['Balance'] || '').trim()) return Math.max(num(o['Balance']), 0);
+  return Math.max(num(o['Total Amount']) - num(o['Advance Paid']), 0);
+}
+function outstandingTotal(arr) { return arr.reduce((s, o) => s + orderOutstanding(o), 0); }
 function rupees(n) {
   if (n === 0) return '₹0';
   return '₹' + Math.round(n).toLocaleString('en-IN');
