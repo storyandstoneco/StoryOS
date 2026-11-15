@@ -1,0 +1,13 @@
+{
+  "categories": ["SOPs", "Customer FAQs", "Policies", "Pricing & Rate Cards", "Brand & Templates"],
+  "documents": [
+    {
+      "title": "Birthday Magazine (Her) — SOP",
+      "category": "SOPs",
+      "file": "sops/SOP-Birthday-Magazine-Her.pdf",
+      "description": "How to take a Birthday Magazine (Her) order from customer details to a print-ready magazine using the automation: what to collect, how to submit, the review checklist and sending to print.",
+      "updated": "15 Nov 2026",
+      "pages": 6
+    }
+  ]
+}

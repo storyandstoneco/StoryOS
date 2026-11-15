@@ -641,6 +641,26 @@
     .chat-input-row button { padding: 10px 14px; background: var(--terra); color: #fff; border: none; border-radius: var(--r-sm); cursor: pointer; font-weight: 600; font-family: 'Work Sans', sans-serif; }
     .chat-input-row button:hover { background: var(--terra-dark); }
     .chat-input-row button:disabled { opacity: .5; cursor: not-allowed; }
+    /* ── Documents ── */
+    #doc-cats { overflow-x: auto; white-space: nowrap; }
+    .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .doc-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: border-color .15s, transform .15s; }
+    .doc-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+    .doc-icon { width: 34px; height: 42px; border: 1.5px solid var(--border-strong); border-radius: 2px; position: relative; display: flex; align-items: flex-end; justify-content: center; font-size: 8px; font-weight: 700; letter-spacing: .05em; color: var(--terra); padding-bottom: 4px; background: #fff; }
+    .doc-icon::after { content: ""; position: absolute; top: -1.5px; right: -1.5px; border-width: 0 10px 10px 0; border-style: solid; border-color: var(--cream) var(--cream) var(--border-strong) var(--border-strong); }
+    .doc-cat { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--terra); }
+    .doc-title { font-family: 'PT Serif', Georgia, serif; font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.25; }
+    .doc-desc { font-size: 12.5px; color: var(--text-mid); line-height: 1.45; flex: 1; }
+    .doc-meta { font-size: 11px; color: var(--text-dim); }
+    .doc-viewer { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(33,30,26,.92); flex-direction: column; }
+    .doc-viewer.show { display: flex; }
+    .doc-viewer-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; background: var(--navy); color: var(--cream); border-bottom: 1px solid var(--navy-light); }
+    .doc-viewer-cat { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); font-weight: 700; }
+    .doc-viewer-title { font-family: 'PT Serif', Georgia, serif; font-size: 17px; font-weight: 700; }
+    .doc-viewer-close { background: none; border: 1px solid var(--navy-light); color: var(--cream); width: 34px; height: 34px; border-radius: var(--r); font-size: 15px; cursor: pointer; }
+    .doc-viewer-pages { flex: 1; overflow-y: auto; padding: 24px 16px 60px; display: flex; flex-direction: column; align-items: center; gap: 16px; -webkit-user-select: none; user-select: none; }
+    .doc-viewer-pages canvas { max-width: min(880px, 100%); height: auto !important; background: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.35); pointer-events: none; }
+    .doc-viewer-msg { color: var(--cream); font-size: 13px; padding: 40px 0; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -733,6 +753,7 @@
         <button class="nav-btn"        data-tab="social-insights"  onclick="showTab('social-insights',this)">Insights</button>
         <button class="nav-btn"        data-tab="conversations"    onclick="showTab('conversations',this)">Conversations</button>
         <button class="nav-btn"        data-tab="notifications"    onclick="showTab('notifications',this)">Notifications<span class="nav-badge" id="notif-badge"></span></button>
+        <button class="nav-btn"        data-tab="documents"        onclick="showTab('documents',this)">Documents</button>
         <button class="nav-btn"        data-tab="team-access"      onclick="showTab('team-access',this)" style="display:none">Team Access</button>
       </nav>
 
@@ -1255,6 +1276,15 @@
           <div class="team-grid" id="team-grid"></div>
         </div>
 
+        <!-- ── DOCUMENTS ── -->
+        <div class="tab-pane" id="tab-documents">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <p style="font-size:13px;color:var(--text-mid)">SOPs, customer FAQs and other business documents. Click a document to read it here.</p>
+          </div>
+          <div class="sub-tabs" id="doc-cats"></div>
+          <div class="doc-grid" id="doc-grid"></div>
+        </div>
+
         <!-- ── NOTIFICATIONS ── -->
         <div class="tab-pane" id="tab-notifications">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
@@ -1281,6 +1311,14 @@
 <!-- ════════════════════════════════════════════
      SETTINGS MODAL
 ════════════════════════════════════════════ -->
+<div class="doc-viewer" id="doc-viewer" oncontextmenu="return false">
+  <div class="doc-viewer-bar">
+    <div><div class="doc-viewer-cat" id="doc-viewer-cat"></div><div class="doc-viewer-title" id="doc-viewer-title"></div></div>
+    <button class="doc-viewer-close" onclick="closeDocViewer()" aria-label="Close">✕</button>
+  </div>
+  <div class="doc-viewer-pages" id="doc-viewer-pages"></div>
+</div>
+
 <div class="modal-overlay" id="settings-modal">
   <div class="modal">
     <h2 class="modal-title">Settings</h2>
@@ -1441,7 +1479,7 @@ function setDemoMode(on) {
 }
 
 // ── TEAM ACCESS / SIGN-IN ──────────────────────
-const ALL_MODULES = ['home','orders','revenue','products','b2b','social','tasks','team','social-insights','conversations','notifications'];
+const ALL_MODULES = ['home','orders','revenue','products','b2b','social','tasks','team','social-insights','conversations','notifications','documents'];
 let currentUser = null; // { email, name, isAdmin, modules: Set<string> }
 
 // n8n webhook that powers the "Ask StoryOS" chat — see workflows/founder-chat-agent.json
@@ -1488,7 +1526,7 @@ const TAB_TITLES = {
   tasks:'Tasks', social:'Social Media Calendar',
   products:'Products', b2b:'B2B Outreach', team:'Team',
   'social-insights':'Social Insights', conversations:'Conversations',
-  'team-access':'Team Access', notifications:'Notifications',
+  'team-access':'Team Access', notifications:'Notifications', documents:'Documents',
 };
 
 // ── CLOCK ─────────────────────────────────────
@@ -1716,6 +1754,7 @@ function showTab(id, btn) {
   if (id === 'home') renderHomeWidgets();
   if (id === 'team-access') renderTeamAccessList();
   if (id === 'notifications') renderNotifications();
+  if (id === 'documents') renderDocuments();
   // placeholder: social-insights and conversations have no async init needed
 }
 
@@ -3842,7 +3881,7 @@ const MODULE_LABELS = {
   home: 'Home', orders: 'Orders', revenue: 'Revenue & P&L', products: 'Products',
   b2b: 'B2B Outreach', social: 'Social Calendar', tasks: 'Tasks', team: 'Team',
   'social-insights': 'Social Insights', conversations: 'Conversations',
-  notifications: 'Notifications',
+  notifications: 'Notifications', documents: 'Documents',
 };
 
 async function renderTeamAccessList() {
@@ -4054,6 +4093,87 @@ function esc(str) {
 }
 function isDelivered(o) { return /^delivered$/i.test(o['Order Status']||''); }
 function isCancelled(o) { return /^cancelled$/i.test(o['Order Status']||''); }
+
+// ── DOCUMENTS ───────────────────────────────────
+// Documents live in the /documents folder of this site, listed in documents/index.json.
+// PDFs are drawn page by page with PDF.js, inside StoryOS, with no download button.
+let docsManifest = null, docsCategory = 'All';
+const PDFJS_SRC = 'vendor/pdfjs/pdf.min.js';          // PDF.js 3.11.174 (Apache-2.0), served from this site
+const PDFJS_WORKER = 'vendor/pdfjs/pdf.worker.min.js';
+
+async function renderDocuments() {
+  const grid = document.getElementById('doc-grid');
+  if (!docsManifest) {
+    grid.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:20px">Loading documents…</div>';
+    try { docsManifest = await (await fetch('documents/index.json', { cache: 'no-cache' })).json(); }
+    catch (e) { grid.innerHTML = '<div class="empty-state"><div class="empty-title">Could not load documents</div></div>'; return; }
+  }
+  const cats = ['All', ...(docsManifest.categories || [])];
+  document.getElementById('doc-cats').innerHTML = cats.map(c =>
+    `<button class="sub-tab${c === docsCategory ? ' active' : ''}" onclick="docsCategory=${esc(JSON.stringify(c))};renderDocuments()">${esc(c)}</button>`).join('');
+  const docs = (docsManifest.documents || []).filter(d => docsCategory === 'All' || d.category === docsCategory);
+  if (!docs.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📄</div><div class="empty-title">No documents in ${esc(docsCategory)} yet</div></div>`;
+    return;
+  }
+  grid.innerHTML = docs.map(d => `
+    <div class="doc-card" onclick='openDocViewer(${esc(JSON.stringify(d))})'>
+      <div class="doc-icon">PDF</div>
+      <div class="doc-cat">${esc(d.category)}</div>
+      <div class="doc-title">${esc(d.title)}</div>
+      <div class="doc-desc">${esc(d.description || '')}</div>
+      <div class="doc-meta">Updated ${esc(d.updated || '')}${d.pages ? ' · ' + d.pages + ' pages' : ''}</div>
+    </div>`).join('');
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+async function loadPdfJs() {
+  if (window.pdfjsLib && window.pdfjsWorker) return window.pdfjsLib;
+  await loadScript(PDFJS_SRC);
+  await loadScript(PDFJS_WORKER);          // worker code runs in the page: reliable everywhere, fine for short documents
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+  return window.pdfjsLib;
+}
+
+async function openDocViewer(doc) {
+  const v = document.getElementById('doc-viewer'), pages = document.getElementById('doc-viewer-pages');
+  document.getElementById('doc-viewer-cat').textContent = doc.category;
+  document.getElementById('doc-viewer-title').textContent = doc.title;
+  pages.innerHTML = '<div class="doc-viewer-msg">Opening…</div>';
+  v.classList.add('show');
+  try {
+    const pdfjs = await loadPdfJs();
+    const pdf = await pdfjs.getDocument({ url: 'documents/' + doc.file }).promise;
+    pages.innerHTML = '';
+    const width = Math.min(880, pages.clientWidth - 32);
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const page = await pdf.getPage(n);
+      const base = page.getViewport({ scale: 1 });
+      const scale = (width / base.width) * (window.devicePixelRatio || 1);
+      const vp = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = vp.width; canvas.height = vp.height;
+      canvas.style.width = width + 'px';
+      pages.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      if (!v.classList.contains('show')) return;   // closed while loading
+    }
+  } catch (e) {
+    pages.innerHTML = '<div class="doc-viewer-msg">Could not open this document.</div>';
+  }
+}
+
+function closeDocViewer() {
+  document.getElementById('doc-viewer').classList.remove('show');
+  document.getElementById('doc-viewer-pages').innerHTML = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDocViewer(); });
 
 function showApiInstructions() {
   alert(`Getting a Google Sheets API Key:
