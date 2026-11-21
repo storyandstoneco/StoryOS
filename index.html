@@ -961,7 +961,6 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -1666,6 +1665,12 @@
       <input type="text" id="set-sync-url" class="form-input" placeholder="https://script.google.com/macros/s/…/exec">
       <div style="font-size:11px;color:var(--text-mid);margin-top:6px;line-height:1.6">Lets you edit orders and B2B records here and have them save back to your real Google Sheet. See <span class="code-tag">tools/sheet-sync-webapp.gs</span> for the one-time setup script.</div>
     </div>
+    <div class="form-group" id="mig-panel" style="border-top:1px solid var(--border);padding-top:16px;display:none">
+      <label class="form-label">Database</label>
+      <div id="mig-note" style="font-size:12px;color:var(--text-mid);line-height:1.6;margin-bottom:10px"></div>
+      <button class="btn-primary" id="mig-btn" style="margin-top:0" onclick="migrateToSupabase()">Move my data to Supabase</button>
+      <div id="mig-status" style="font-size:12px;color:var(--text);line-height:1.7;margin-top:10px"></div>
+    </div>
     <div class="form-group" style="border-top:1px solid var(--border);padding-top:16px">
       <label class="form-label"><input type="checkbox" id="set-demo-mode" onchange="setDemoMode(this.checked)"> Demo Mode</label>
       <div style="font-size:11px;color:var(--text-mid);margin-top:6px;line-height:1.6">Shows sample Orders &amp; Revenue data instead of your real business data — safe to use when demoing the platform to others. Every other module stays on your real data.</div>
@@ -1906,10 +1911,11 @@ window.addEventListener('load', () => {
     document.getElementById('setup-screen').style.display = 'flex';
     return;
   }
-  proceedToSignIn();
+  sbBoot();
 });
 
 function proceedToSignIn() {
+  if (window.supabase) { sbBoot(); return; }
   const savedEmail = localStorage.getItem('sos_user_email');
   if (savedEmail) {
     authorizeUser(savedEmail);
@@ -1929,6 +1935,10 @@ function saveAndLaunch() {
 }
 
 function initGoogleSignIn() {
+  // Sign-in now goes through Supabase Auth (one Google sign-in for StoryOS + Team Chat).
+  const sbBtn = document.getElementById('google-signin-btn');
+  if (sbBtn) sbBtn.innerHTML = TC_GOOGLE_BTN('Sign in with Google').replace('tcSignIn()', 'storyosSignIn()');
+  return;
   if (!window.google || GOOGLE_CLIENT_ID.indexOf('PASTE_YOUR') === 0) return;
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleSignIn });
   const btn = document.getElementById('google-signin-btn');
@@ -1967,7 +1977,7 @@ function showSignInErr(msg) {
 }
 
 function signOutOfStoryOS() {
-  tcSignOut();
+  tcSignOut(); // also ends the Supabase session
   localStorage.removeItem('sos_user_email');
   localStorage.removeItem('sos_user_name');
   currentUser = null;
@@ -1982,6 +1992,7 @@ function signOutOfStoryOS() {
 let teamAccessCache = null; // { headers, emailCol, nameCol, adminCol, modulesCol, rows }
 
 async function fetchTeamAccessRows() {
+  if (SB_MODE) { teamAccessCache = await sbTeamAccessRows(); return teamAccessCache; }
   const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID +
     '/values/' + encodeURIComponent('Team Access') + '?key=' + API_KEY;
   const res = await fetch(url);
@@ -2133,7 +2144,178 @@ function restoreSidebarCollapse() {
 // ── SYNC ─────────────────────────────────────
 // Writes a row update/insert back to the real Google Sheet via the Apps Script bridge.
 // See tools/sheet-sync-webapp.gs for the one-time setup this depends on.
+// ── SUPABASE DATA LAYER ───────────────────────
+// Before the admin clicks "Move my data to Supabase" (Settings), everything is
+// read from / saved to the Google Sheet exactly as before. Afterwards (SB_MODE),
+// these tabs are read from and saved to Supabase instead; the Google Sheet gets an
+// automatic copy every 5 minutes (tools/supabase/sheet-mirror.gs). Wedding Planners
+// and Corporates stay on the Sheet for now (Phase 2 — their automations use it).
+let SB_MODE = false;
+const SB_TABLES = {
+  'Orders': 'orders', 'Demo Orders': 'demo_orders', 'P&L': 'pnl', 'Demo P&L': 'demo_pnl',
+  'Social Media Calendar': 'social_calendar', 'Tasks': 'tasks', 'Team': 'team', 'Activity Log': 'activity_log',
+};
+const ORDER_COLS = ['Order ID','Order Date','Customer Name','Phone','Insta ID','Address','Source','Product Type','Occasion','Variant','Qty','Pages/Size',
+  'Total Amount','Advance Paid','Balance','Payment Status','Content Received','Draft Sent','Final Approval','Dispatch Date','Tracking No.','Order Status','Post Permission','Notes'];
+const SB_COLS = {
+  orders: ORDER_COLS, demo_orders: ORDER_COLS, pnl: ['Category','Amount'], demo_pnl: ['Category','Amount'],
+  social_calendar: ['Date','Day','Platform','Post Type','Content Type','Content Idea','Caption','Status','Notes'],
+  tasks: ['ID','Text','Category','Done'], team: ['Name','Role','Responsibilities'], activity_log: ['Timestamp','Actor','Category','Message'],
+};
+function sbTableFor(sheet) { return SB_MODE ? SB_TABLES[sheet] || null : null; }
+function sbClean(row) { const o = {}; for (const k in row) if (k[0] !== '_') o[k] = row[k] == null ? '' : String(row[k]).trim(); return o; }
+function sbFields(tbl, fields) {
+  const o = {}; (SB_COLS[tbl] || []).forEach(c => { if (fields && c in fields) o[c] = fields[c] == null ? '' : String(fields[c]); }); return o;
+}
+async function sbSelectAll(tbl) {
+  const all = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from(tbl).select('*').order('_id').range(from, from + 999);
+    if (error) throw error;
+    all.push(...data);
+    if (data.length < 1000) return all;
+  }
+}
+async function sbWrite(tbl, b) {
+  try {
+    let q;
+    if (b.action === 'addRow') q = sb.from(tbl).insert(sbFields(tbl, b.fields));
+    else if (b.action === 'updateRow') q = sb.from(tbl).update(sbFields(tbl, b.fields)).eq(b.matchColumn, String(b.matchValue));
+    else if (b.action === 'deleteRow') q = sb.from(tbl).delete().eq(b.matchColumn, String(b.matchValue));
+    else return { ok: false, error: 'Unknown action' };
+    const { data, error } = await q.select('_id');
+    if (error) throw error;
+    if (b.action !== 'addRow' && !data.length) {
+      alert('Couldn\'t save — that record wasn\'t found, or your access doesn\'t include editing it.');
+      return { ok: false };
+    }
+    return { ok: true };
+  } catch (e) {
+    alert('Couldn\'t save: ' + (e.message || e) + (/row-level security|permission/i.test(e.message || '') ? '\n\nYour access doesn\'t include editing this — ask your admin.' : ''));
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+// Team Access = the members table (email, name, is_admin, modules)
+async function sbWriteMembers(b) {
+  try {
+    const f = b.fields || {};
+    const row = { name: (f.Name || '').trim(), email: (f.Email || '').trim().toLowerCase(), is_admin: /^y/i.test(f.Admin || ''), modules: f.Modules || '' };
+    let q;
+    if (b.action === 'addRow') q = sb.from('members').insert(row);
+    else if (b.action === 'updateRow') q = sb.from('members').update(row).eq('email', String(b.matchValue).trim().toLowerCase());
+    else if (b.action === 'deleteRow') q = sb.from('members').delete().eq('email', String(b.matchValue).trim().toLowerCase());
+    const { data, error } = await q.select('email');
+    if (error) throw error;
+    if (b.action !== 'addRow' && !data.length) { alert('Couldn\'t find that person.'); return { ok: false }; }
+    return { ok: true };
+  } catch (e) {
+    alert('Couldn\'t save: ' + (/duplicate key/i.test(e.message || '') ? 'that email is already on the team.' : (e.message || e)));
+    return { ok: false };
+  }
+}
+async function sbTeamAccessRows() {
+  const { data, error } = await sb.from('members').select('email, name, is_admin, modules').order('name');
+  if (error || !data || !data.length) return null;
+  return {
+    headers: ['Name', 'Email', 'Admin', 'Modules'], nameCol: 0, emailCol: 1, adminCol: 2, modulesCol: 3,
+    rows: data.map(m => [m.name || '', m.email || '', m.is_admin ? 'Yes' : 'No', m.modules || '']),
+  };
+}
+
+// ── Sign-in (Supabase Auth → Google) ──
+function storyosSignIn() {
+  if (!sb) { showSignInErr('Sign-in couldn\'t load — check your internet connection and refresh.'); return; }
+  sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });
+}
+async function sbBoot() {
+  if (!sb) { document.getElementById('signin-screen').style.display = 'flex'; showSignInErr('Sign-in couldn\'t load — check your internet connection and refresh.'); return; }
+  const returning = /[?&]code=/.test(location.search);
+  try { const st = await sb.rpc('storyos_status'); SB_MODE = !!(st.data && st.data.migrated); } catch (e) {}
+  const { data } = await sb.auth.getSession();
+  if (returning) history.replaceState(null, '', location.pathname + location.hash);
+  const email = data && data.session && data.session.user && (data.session.user.email || '').toLowerCase();
+  if (email) {
+    localStorage.setItem('sos_user_email', email);
+    localStorage.setItem('sos_user_name', (data.session.user.user_metadata && data.session.user.user_metadata.full_name) || email);
+    authorizeUser(email, returning);
+  } else {
+    document.getElementById('signin-screen').style.display = 'flex';
+  }
+}
+
+// ── One-time move: Google Sheet → Supabase (admin, from Settings) ──
+async function sheetValues(tab) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}?key=${API_KEY}`;
+  const json = await (await fetch(url)).json();
+  if (json.error) return null;
+  return json.values || [];
+}
+function sheetObjects(values) {
+  if (!values || values.length < 2) return [];
+  const headers = values[0].map(h => String(h).trim());
+  return values.slice(1).map(r => { const o = {}; headers.forEach((h, i) => { if (h) o[h] = String(r[i] == null ? '' : r[i]).trim(); }); return o; })
+    .filter(o => Object.values(o).some(v => v));
+}
+// The P&L tab is a formatted report: numbered expense lines with Category + "₹ 1,234".
+function pnlFromReport(values) {
+  return (values || []).filter(r => /^\d+$/.test(String(r[4] || '').trim()) && String(r[5] || '').trim() && /\d/.test(String(r[6] || '')))
+    .map(r => ({ Category: String(r[5]).trim(), Amount: String(r[6]).replace(/[^\d.\-]/g, '') }));
+}
+async function migrateToSupabase() {
+  if (!currentUser || !currentUser.isAdmin || !sb) return;
+  if (!confirm('Move StoryOS data from the Google Sheet into Supabase?\n\nOrders, P&L, Social calendar, Tasks, Team, Activity Log and Team Access will be copied. Your Google Sheet is not changed. After this, StoryOS saves everything to Supabase for the whole team.')) return;
+  const btn = document.getElementById('mig-btn'), out = document.getElementById('mig-status');
+  btn.disabled = true; out.innerHTML = 'Copying… please keep this window open.';
+  const lines = []; let failed = false;
+  const show = () => { out.innerHTML = lines.map(l => '<div>' + l + '</div>').join(''); };
+  const plan = [['Orders', 'orders'], ['Demo Orders', 'demo_orders'], ['P&L', 'pnl'], ['Demo P&L', 'demo_pnl'],
+                ['Social Media Calendar', 'social_calendar'], ['Tasks', 'tasks'], ['Team', 'team'], ['Activity Log', 'activity_log']];
+  for (const [tab, tbl] of plan) {
+    try {
+      const values = await sheetValues(tab);
+      if (values === null) { lines.push(`• ${esc(tab)}: no tab in the sheet — skipped`); show(); continue; }
+      const rows = (tbl === 'pnl' ? pnlFromReport(values) : sheetObjects(values)).map(r => sbFields(tbl, r)).filter(r => Object.values(r).some(v => v));
+      const head = await sb.from(tbl).select('_id', { count: 'exact', head: true });
+      if (head.error) throw head.error;
+      if (head.count > 0) { lines.push(`• ${esc(tab)}: already in Supabase (${head.count}) — left as is`); show(); continue; }
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await sb.from(tbl).insert(rows.slice(i, i + 500));
+        if (error) throw error;
+      }
+      lines.push(`✓ ${esc(tab)}: ${rows.length} row${rows.length === 1 ? '' : 's'} copied`); show();
+    } catch (e) { failed = true; lines.push(`✗ ${esc(tab)}: ${esc(e.message || String(e))}`); show(); }
+  }
+  try {
+    const ta = sheetObjects(await sheetValues('Team Access'));
+    const members = ta.filter(r => r.Email).map(r => ({ email: r.Email.toLowerCase(), name: r.Name || '', is_admin: /^y/i.test(r.Admin || ''), modules: r.Modules || '' }));
+    if (members.length) { const { error } = await sb.from('members').upsert(members, { onConflict: 'email' }); if (error) throw error; }
+    lines.push(`✓ Team Access: ${members.length} ${members.length === 1 ? 'person' : 'people'}`); show();
+  } catch (e) { failed = true; lines.push('✗ Team Access: ' + esc(e.message || String(e))); show(); }
+  if (failed) {
+    lines.push('<b>Something didn\'t copy — nothing has been switched over yet.</b> Send a screenshot of this to fix it, then click the button again (already-copied tabs are skipped).');
+    show(); btn.disabled = false; return;
+  }
+  const mk = await sb.rpc('mark_migrated');
+  if (mk.error) { lines.push('✗ ' + esc(mk.error.message)); show(); btn.disabled = false; return; }
+  SB_MODE = true;
+  lines.push('<b>Done — StoryOS now runs on Supabase for everyone.</b> Next: set up the Google Sheet copy (see the steps Claude gave you).');
+  show();
+  logActivity('System', actorName() + ' moved StoryOS data to Supabase');
+  await syncAll();
+  renderMigrationPanel();
+}
+function renderMigrationPanel() {
+  const box = document.getElementById('mig-panel'); if (!box) return;
+  box.style.display = currentUser && currentUser.isAdmin ? '' : 'none';
+  const btn = document.getElementById('mig-btn'), note = document.getElementById('mig-note');
+  if (SB_MODE) { btn.style.display = 'none'; note.innerHTML = '✓ StoryOS data is stored in <b>Supabase</b>. The Google Sheet tabs are an automatic copy.'; }
+  else { btn.style.display = ''; note.textContent = 'Copies Orders, P&L, Social calendar, Tasks, Team, Activity Log and Team Access from the Google Sheet into Supabase. The sheet isn\'t changed.'; }
+}
+
 async function postToSheet(body) {
+  const sbt = sbTableFor(body.sheet);
+  if (sbt) return sbWrite(sbt, body);
+  if (SB_MODE && body.sheet === 'Team Access') return sbWriteMembers(body);
   if (!SYNC_URL) {
     alert('Two-way sync isn\'t set up yet. Go to Settings and add your Sync Web App URL (see tools/sheet-sync-webapp.gs for setup).');
     return { ok: false };
@@ -2197,6 +2379,12 @@ async function syncAll() {
 }
 
 async function fetchTab(tabName, storeKey) {
+  const sbt = sbTableFor(tabName);
+  if (sbt) {
+    try { store[storeKey] = (await sbSelectAll(sbt)).map(sbClean); }
+    catch (e) { store[storeKey] = null; console.warn('Supabase error for "' + tabName + '":', e.message || e); }
+    return;
+  }
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tabName)}?key=${API_KEY}`;
   try {
     const res  = await fetch(url);
@@ -2285,6 +2473,7 @@ function logActivity(category, message) {
     updateNotifBadge();
   }
 
+  if (sbTableFor('Activity Log')) { sb.from('activity_log').insert(entry).then(() => {}, () => {}); return; }
   if (!SYNC_URL) return;
   fetch(SYNC_URL, {
     method: 'POST',
@@ -2435,7 +2624,7 @@ async function tcOnSession(session) {
   if (email !== tcMe()) { tcTeardown(); tcStopPresence(false); tc.auth = 'mismatch'; tc.sbEmail = email; tcRenderAll(); return; }
   if (tc.auth === 'ok') return; // token refreshes etc.
   tc.auth = 'ok'; tcRenderAll();
-  if (currentUser.isAdmin) await tcSyncMembers();
+  if (currentUser.isAdmin && !SB_MODE) await tcSyncMembers(); // after the move, members IS Team Access
   await tcLoad();
   tcSubscribe();
   tcStartPresence();
@@ -2982,7 +3171,42 @@ function executeAgentAction(action) {
     executeTaskAction(action.op, payload);
   } else if (action.module === 'team') {
     executeTeamAction(action.op, payload);
+  } else if (action.module === 'orders') {
+    executeOrderAction(action.op, payload);
+  } else if (action.module === 'social') {
+    executeSocialAction(action.op, payload);
   }
+}
+
+function userCan(mod) { return !currentUser || currentUser.isAdmin || currentUser.modules.has(mod); }
+// Order changes the chat assistant was asked to make — saved by StoryOS itself
+// (with the signed-in person's permissions), so n8n never writes order data directly.
+async function executeOrderAction(op, payload) {
+  if (op !== 'update' || !userCan('orders')) return;
+  const id = String(payload.orderId || payload.id || '').trim();
+  const row = (store.orders || []).find(o => (o['Order ID'] || '').trim().toLowerCase() === id.toLowerCase());
+  if (!row) { appendChatBubble('I couldn\'t find order ' + id + ' to update.', 'bot'); return; }
+  const fields = {};
+  if (payload.status) fields['Order Status'] = String(payload.status);
+  if (payload.balance !== undefined && payload.balance !== '') fields['Balance'] = String(payload.balance).replace(/[^\d.\-]/g, '');
+  if (!Object.keys(fields).length) return;
+  const result = await postToSheet({ action: 'updateRow', sheet: ordersSheetName(), matchColumn: 'Order ID', matchValue: row['Order ID'], fields });
+  if (!result.ok) return;
+  Object.assign(row, fields);
+  renderAll();
+  logActivity('Orders', actorName() + ' (via chat) updated ' + row['Order ID'] + ': ' + Object.entries(fields).map(([k, v]) => k + ' → ' + v).join(', '));
+}
+async function executeSocialAction(op, payload) {
+  if (op !== 'add' || !userCan('social')) return;
+  const fields = { Date: payload.date || '', Day: payload.day || '', 'Content Type': payload.contentType || '', 'Content Idea': payload.contentIdea || '',
+                   Status: payload.status || 'Planned', Notes: payload.notes || '' };
+  if (!fields['Content Idea']) return;
+  const result = await postToSheet({ action: 'addRow', sheet: 'Social Media Calendar', fields });
+  if (!result.ok) return;
+  if (!store.social) store.social = [];
+  store.social.push(fields);
+  renderSocial();
+  logActivity('Social', actorName() + ' (via chat) added a post idea: ' + fields['Content Idea']);
 }
 
 async function executeTaskAction(op, payload) {
@@ -4889,6 +5113,7 @@ function openSettings() {
   document.getElementById('set-sheet').value = SHEET_ID;
   document.getElementById('set-sync-url').value = SYNC_URL;
   document.getElementById('set-demo-mode').checked = demoMode;
+  renderMigrationPanel();
   const userLine = document.getElementById('settings-current-user');
   if (userLine) {
     userLine.textContent = currentUser
