@@ -850,8 +850,8 @@
     /* ── TEAM CHAT (Teams-style: channels + direct messages) ── */
     .nav-btn[data-tab="chat"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1'/%3E%3C/svg%3E"); }
     body.tc-active .chat-fab, body.tc-active .chat-panel { display: none !important; }
-    .tc-wrap { display: grid; grid-template-columns: 300px 1fr; height: calc(100vh - 150px); min-height: 460px; background: #fff; border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow); overflow: hidden; }
-    .tc-list { border-right: 1px solid var(--border); background: #FBF9F7; display: flex; flex-direction: column; min-height: 0; }
+    .tc-wrap { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: calc(100vh - 150px); min-height: 460px; background: #fff; border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow); overflow: hidden; }
+    .tc-list { border-right: 1px solid var(--border); background: #FBF9F7; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
     .tc-list-head { padding: 18px 18px 10px; font-family: 'Playfair Display', Georgia, serif; font-size: 20px; font-weight: 600; color: var(--text); }
     .tc-list-scroll { flex: 1; overflow-y: auto; padding: 0 10px 12px; }
     .tc-section { font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); padding: 14px 10px 6px; }
@@ -908,7 +908,7 @@
     .tc-google:hover { border-color: var(--terra); color: var(--terra); }
     .tc-hint { font-size: 10.5px; color: var(--text-dim); padding: 0 18px 8px; background: #fff; }
     @media (max-width: 768px) {
-      .tc-wrap { grid-template-columns: 1fr; height: calc(100dvh - 106px); min-height: 0; border-radius: var(--r); }
+      .tc-wrap { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - 106px); min-height: 0; border-radius: var(--r); }
       .tc-wrap .tc-conv { display: none; }
       .tc-wrap.conv-open .tc-list { display: none; }
       .tc-wrap.conv-open .tc-conv { display: flex; }
@@ -918,6 +918,34 @@
       .tc-hint { display: none; }
       #tab-chat { margin: -2px -4px 0; }
     }
+    /* ── TEAM STATUS ── */
+    .tc-av, .me-status { position: relative; }
+    .me-status { cursor: pointer; flex-shrink: 0; }
+    .tc-dot { position: absolute; right: -2px; bottom: -2px; width: 13px; height: 13px; border-radius: 50%; border: 2.5px solid #fff; box-sizing: border-box; background: #A69C95; }
+    .tc-dot.inline { position: relative; right: auto; bottom: auto; display: inline-block; width: 10px; height: 10px; border-width: 0; margin-right: 8px; vertical-align: 0; flex-shrink: 0; }
+    .tc-dot.s-available { background: #2E9E5B; }
+    .tc-dot.s-away, .tc-dot.s-brb { background: #E0A020; }
+    .tc-dot.s-busy { background: #C9372C; }
+    .tc-dot.s-dnd { background: #C9372C; }
+    .tc-dot.s-dnd::after { content: ''; position: absolute; left: 22%; right: 22%; top: 50%; height: 2px; margin-top: -1px; background: #fff; border-radius: 1px; }
+    .tc-dot.s-offline { background: #fff; box-shadow: inset 0 0 0 2px #A69C95; }
+    .tc-dot.inline.s-offline { box-shadow: inset 0 0 0 2px #A69C95; }
+    .tc-dot.inline.s-dnd::after { left: 2px; right: 2px; }
+    .tc-item.active .tc-dot, .tc-conv-head .tc-dot { border-color: #fff; }
+    .tc-list .tc-item:not(.active) .tc-dot { border-color: #FBF9F7; }
+    .tc-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .tc-my-status { display: inline-flex; align-items: center; font-family: 'Jost', sans-serif; font-size: 12px; font-weight: 500; color: var(--text-mid); background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; cursor: pointer; white-space: nowrap; }
+    .tc-my-status:hover { border-color: var(--terra); color: var(--terra); }
+    .tc-chev { margin-left: 6px; font-size: 9px; opacity: .7; }
+    .tc-sub-status.s-available { color: #2E7D4F; }
+    .tc-status-menu { position: fixed; z-index: 400; width: 240px; background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 8px; }
+    .tc-sm-head { padding: 8px 10px 10px; font-weight: 600; font-size: 14px; color: var(--text); border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+    .tc-sm-head span { display: block; font-weight: 400; font-size: 11.5px; color: var(--text-mid); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; }
+    .tc-sm-item { display: flex; align-items: center; width: 100%; padding: 9px 10px; border: none; background: none; border-radius: 10px; font-size: 13.5px; color: var(--text); cursor: pointer; text-align: left; }
+    .tc-sm-item:hover { background: var(--tint); }
+    .tc-sm-item.on { font-weight: 600; }
+    .tc-sm-check { margin-left: auto; color: var(--terra); }
+    .tc-sm-note { font-size: 11px; color: var(--text-dim); padding: 6px 10px 4px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
@@ -1034,7 +1062,7 @@
         <div class="topbar-right">
           <div class="topbar-clock-date" id="topbar-clock-date"></div>
           <span class="last-sync-label" id="last-sync-label">Not synced yet</span>
-          <div class="masthead-avatar" id="masthead-avatar">SG</div>
+          <div class="me-status" id="me-status-wrap" onclick="tcToggleStatusMenu(event)"><div class="masthead-avatar" id="masthead-avatar">SG</div><span class="tc-dot" id="me-status-dot" style="display:none"></span></div>
         </div>
       </div>
 
@@ -1549,7 +1577,7 @@
         <div class="tab-pane" id="tab-chat">
           <div class="tc-wrap" id="tc-wrap">
             <aside class="tc-list">
-              <div class="tc-list-head">Chats</div>
+              <div class="tc-list-head">Chats<button class="tc-my-status" id="tc-my-status" style="display:none" onclick="tcToggleStatusMenu(event)" title="Set your status"></button></div>
               <div class="tc-list-scroll">
                 <div class="tc-section">Channels</div>
                 <div id="tc-channels"></div>
@@ -2388,13 +2416,15 @@ window.addEventListener('resize', () => { if (tc.started) tcRenderList(); });
 async function tcOnSession(session) {
   if (!currentUser) return;
   const email = ((session && session.user && session.user.email) || '').toLowerCase();
-  if (!session) { tcTeardown(); tc.auth = 'signin'; tcRenderAll(); return; }
-  if (email !== tcMe()) { tcTeardown(); tc.auth = 'mismatch'; tc.sbEmail = email; tcRenderAll(); return; }
+  tc.token = (session && session.access_token) || '';
+  if (!session) { tcTeardown(); tcStopPresence(false); tc.auth = 'signin'; tcRenderAll(); return; }
+  if (email !== tcMe()) { tcTeardown(); tcStopPresence(false); tc.auth = 'mismatch'; tc.sbEmail = email; tcRenderAll(); return; }
   if (tc.auth === 'ok') return; // token refreshes etc.
   tc.auth = 'ok'; tcRenderAll();
   if (currentUser.isAdmin) await tcSyncMembers();
   await tcLoad();
   tcSubscribe();
+  tcStartPresence();
 }
 function tcSignIn() {
   if (!sb) return;
@@ -2407,9 +2437,11 @@ function tcSignIn() {
 async function tcSwitchAccount() { if (sb) { await sb.auth.signOut(); } tcSignIn(); }
 function tcTeardown() { if (tc.sub && sb) { sb.removeChannel(tc.sub); } tc.sub = null; }
 async function tcSignOut() {
+  tcStopPresence(true);
   tcTeardown();
   if (sb) { try { await sb.auth.signOut(); } catch (e) {} }
-  Object.assign(tc, { msgs: [], ids: new Set(), ready: false, missing: false, notMember: false, auth: 'checking', started: false, convOpen: false });
+  Object.assign(tc, { msgs: [], ids: new Set(), ready: false, missing: false, notMember: false, auth: 'checking', started: false, convOpen: false, people: {}, presenceReady: false, token: '' });
+  tcRenderPresence();
   document.title = tc.baseTitle;
 }
 
@@ -2453,6 +2485,7 @@ function tcSubscribe() {
   tcTeardown();
   tc.sub = sb.channel('storyos-team-chat')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => tcIngest([p.new], true))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, p => { if (p.new && p.new.email && 'status' in p.new) { tcSetPerson(p.new); tcRenderPresence(); } })
     .subscribe(status => {
       if (status === 'SUBSCRIBED') { if (tc.reconnect) tcCatchUp(); tc.reconnect = false; }
       else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') tc.reconnect = true;
@@ -2519,7 +2552,7 @@ function tcItem(ch, name, av, isCh) {
   const active = ch === tc.active && (window.innerWidth > 768 || tc.convOpen);
   const prev = last ? (last['Sender Email'] === tcMe() ? 'You: ' : (isCh ? (last['Sender Name'] || '').split(' ')[0] + ': ' : '')) + last.Text.replace(/\s+/g, ' ') : (isCh ? 'No messages yet' : 'Start a conversation');
   return `<button class="tc-item${active ? ' active' : ''}${unread ? ' unread' : ''}" onclick="tcOpen('${esc(ch)}')">
-      <div class="tc-av${isCh ? ' ch' : ''}">${esc(av)}</div>
+      <div class="tc-av${isCh ? ' ch' : ''}">${esc(av)}${isCh ? '' : tcDot(tcPresence(String(ch).slice(3).split('|').find(e => e !== tcMe()) || '').key)}</div>
       <div class="tc-item-body">
         <div class="tc-item-top"><span class="tc-item-name">${esc(name)}</span><span class="tc-item-time">${last ? tcListTime(parseActivityTs(last.Timestamp)) : ''}</span></div>
         <div class="tc-item-top"><span class="tc-item-prev">${esc(prev)}</span>${unread ? `<span class="tc-unread">${unread > 99 ? '99+' : unread}</span>` : ''}</div>
@@ -2536,6 +2569,12 @@ function tcRenderList() {
   dmEl.innerHTML = members.length
     ? members.map(m => tcItem(tcDmId(m.email), m.name, initialsOf(m.name), false)).join('')
     : '<div style="font-size:12px;color:var(--text-dim);padding:4px 10px">Team members added under Team Access will appear here.</div>';
+  const chip = document.getElementById('tc-my-status');
+  if (chip) {
+    const mine = tcPresence(tcMe());
+    chip.style.display = (tc.auth === 'ok' && tc.presenceReady) ? '' : 'none';
+    chip.innerHTML = `<span class="tc-dot s-${mine.key} inline"></span>${esc(mine.label)}<span class="tc-chev">▾</span>`;
+  }
   const ab = document.getElementById('tc-alerts-btn');
   if (ab) ab.style.display = (tc.auth === 'ok' && 'Notification' in window && Notification.permission === 'default') ? '' : 'none';
 }
@@ -2543,11 +2582,21 @@ function tcCard(title, body, btn) {
   return `<div class="tc-setup"><h3>${title}</h3>${body}${btn ? `<div style="margin-top:16px">${btn}</div>` : ''}</div>`;
 }
 const TC_GOOGLE_BTN = label => `<button class="tc-google" onclick="tcSignIn()"><svg viewBox="0 0 48 48" width="18" height="18"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>${label}</button>`;
+function tcRenderHeader() {
+  const av = document.getElementById('tc-conv-av'); if (!av) return;
+  const info = tcConvInfo(tc.active);
+  setText('tc-conv-title', info.title);
+  const sub = document.getElementById('tc-conv-sub');
+  if (info.isCh) { sub.textContent = info.sub; av.innerHTML = '#'; av.className = 'tc-av ch'; return; }
+  const other = String(tc.active).slice(3).split('|').find(e => e !== tcMe()) || tcMe();
+  const pr = tcPresence(other);
+  av.className = 'tc-av'; av.innerHTML = esc(info.av) + tcDot(pr.key);
+  sub.innerHTML = tc.presenceReady ? `<span class="tc-sub-status s-${pr.key}">${esc(pr.label)}</span>` : esc(info.sub);
+}
 function tcRenderConv(forceBottom) {
   const box = document.getElementById('tc-msgs'); if (!box) return;
   const info = tcConvInfo(tc.active);
-  setText('tc-conv-title', info.title); setText('tc-conv-sub', info.sub);
-  const av = document.getElementById('tc-conv-av'); av.textContent = info.av; av.className = 'tc-av' + (info.isCh ? ' ch' : '');
+  tcRenderHeader();
   const input = document.getElementById('tc-input'), send = document.getElementById('tc-send');
   input.placeholder = info.isCh ? 'Message #' + info.title : 'Message ' + info.title;
   const blocked = tc.auth !== 'ok' || !tc.ready || tc.missing || tc.notMember;
@@ -2641,7 +2690,7 @@ function tcEnableAlerts() {
 }
 function tcAlert(newMsgs) {
   const fromOthers = newMsgs.filter(m => m['Sender Email'] !== tcMe() && !tcViewing(m.Channel));
-  if (!fromOthers.length || !('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!fromOthers.length || !('Notification' in window) || Notification.permission !== 'granted' || tc.myStatus === 'dnd') return;
   const m = fromOthers[fromOthers.length - 1];
   const info = tcConvInfo(m.Channel);
   try {
@@ -2649,6 +2698,139 @@ function tcAlert(newMsgs) {
       { body: m.Text.slice(0, 140) + (fromOthers.length > 1 ? `  (+${fromOthers.length - 1} more)` : ''), tag: 'storyos-chat' });
     n.onclick = () => { window.focus(); showTab('chat', document.querySelector('.nav-btn[data-tab="chat"]')); tcOpen(m.Channel); n.close(); };
   } catch (e) {}
+}
+
+// ── TEAM STATUS (online / away / last seen + Teams-style status) ──
+// Every open StoryOS tab pings heartbeat() every 30s (tools/supabase/02-presence.sql).
+// Someone counts as online if their last ping is < 75s old; "Away" when their tab is
+// in the background or they've been idle 5 min; otherwise their chosen status shows.
+const TC_STATUSES = [
+  { key: 'available', label: 'Available' },
+  { key: 'busy',      label: 'Busy' },
+  { key: 'dnd',       label: 'Do not disturb' },
+  { key: 'brb',       label: 'Be right back' },
+  { key: 'away',      label: 'Appear away' },
+  { key: 'offline',   label: 'Appear offline' },
+];
+const TC_IDLE_MS = 5 * 60000;
+Object.assign(tc, { people: {}, myStatus: 'available', lastInput: Date.now(), hbTimer: null, tickTimer: null, wasIdle: false, token: '' });
+
+function tcSetPerson(r) {
+  if (!r || !r.email) return;
+  tc.people[r.email] = { status: r.status || 'available', online: !!r.online, active: !!r.active, lastSeen: r.last_seen ? Date.parse(r.last_seen) : 0 };
+  if (r.email === tcMe() && r.status) tc.myStatus = r.status;
+}
+async function tcLoadPeople() {
+  if (!sb || tc.auth !== 'ok') return;
+  const { data, error } = await sb.from('members').select('email, status, online, active, last_seen');
+  if (error) return; // presence columns not set up yet — status just stays hidden
+  tc.presenceReady = true;
+  (data || []).forEach(tcSetPerson);
+  tcRenderPresence();
+}
+function tcAgo(ms) {
+  const diff = Date.now() - ms, min = Math.floor(diff / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return min + ' min ago';
+  const d = new Date(ms), t = new Date(), y = new Date(); y.setDate(t.getDate() - 1);
+  if (d.toDateString() === t.toDateString()) return 'today at ' + tcTime(ms);
+  if (d.toDateString() === y.toDateString()) return 'yesterday at ' + tcTime(ms);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+function tcPresence(email) {
+  const labels = { busy: 'Busy', dnd: 'Do not disturb', brb: 'Be right back', away: 'Away' };
+  if (email === tcMe()) {
+    const s = tc.myStatus;
+    return { key: s, label: s === 'offline' ? 'Appear offline' : s === 'away' ? 'Appear away' : (labels[s] || 'Available') };
+  }
+  const p = tc.people[email];
+  if (!p) return { key: 'offline', label: 'Offline' };
+  const fresh = p.online && p.lastSeen && Date.now() - p.lastSeen < 75000;
+  if (p.status === 'offline') return { key: 'offline', label: 'Offline' };
+  if (!fresh) return { key: 'offline', label: p.lastSeen ? 'Last seen ' + tcAgo(p.lastSeen) : 'Offline' };
+  if (labels[p.status]) return { key: p.status, label: labels[p.status] };
+  if (!p.active) return { key: 'away', label: 'Away' };
+  return { key: 'available', label: 'Available' };
+}
+function tcDot(key) { return tc.presenceReady ? `<span class="tc-dot s-${key}"></span>` : ''; }
+
+function tcIsActive() { return !document.hidden && Date.now() - tc.lastInput < TC_IDLE_MS; }
+async function tcHeartbeat() {
+  if (!sb || tc.auth !== 'ok' || !tc.presenceReady) return;
+  tc.wasIdle = !tcIsActive();
+  const { error } = await sb.rpc('heartbeat', { p_active: !tc.wasIdle, p_online: true });
+  if (!error) {
+    const me = tc.people[tcMe()] || {};
+    tc.people[tcMe()] = { ...me, status: tc.myStatus, online: true, active: !tc.wasIdle, lastSeen: Date.now() };
+  }
+}
+function tcStartPresence() {
+  clearInterval(tc.hbTimer); clearInterval(tc.tickTimer);
+  tcLoadPeople().then(tcHeartbeat);
+  tc.hbTimer = setInterval(tcHeartbeat, 30000);
+  tc.tickTimer = setInterval(() => { tcLoadPeople(); }, 60000); // refreshes "last seen" labels + catches anything Realtime missed
+}
+function tcStopPresence(sendOffline) {
+  clearInterval(tc.hbTimer); clearInterval(tc.tickTimer);
+  if (sendOffline && tc.token) tcOfflineBeacon();
+}
+// Fired as a tab closes — a normal request may be cancelled, so use keepalive.
+function tcOfflineBeacon() {
+  if (!tc.token || !tc.presenceReady) return;
+  try {
+    fetch(SB_URL + '/rest/v1/rpc/heartbeat', {
+      method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + tc.token },
+      body: JSON.stringify({ p_active: false, p_online: false }),
+    });
+  } catch (e) {}
+}
+window.addEventListener('pagehide', () => { if (tc.auth === 'ok') tcOfflineBeacon(); });
+document.addEventListener('visibilitychange', () => { if (tc.auth === 'ok') tcHeartbeat(); });
+(function () {
+  let last = 0;
+  const onInput = () => {
+    const now = Date.now(); if (now - last < 15000) return; last = now;
+    tc.lastInput = now;
+    if (tc.wasIdle && tc.auth === 'ok') tcHeartbeat(); // back from idle → show Available straight away
+  };
+  ['mousemove', 'keydown', 'touchstart', 'scroll', 'click'].forEach(ev => window.addEventListener(ev, onInput, { passive: true, capture: true }));
+})();
+
+async function tcSetMyStatus(key) {
+  tcCloseStatusMenu();
+  const prev = tc.myStatus;
+  tc.myStatus = key; tcRenderPresence();
+  const { error } = await sb.rpc('set_my_status', { p_status: key });
+  if (error) { tc.myStatus = prev; tcRenderPresence(); alert('Couldn\'t change your status — please try again.'); }
+}
+function tcToggleStatusMenu(e) {
+  e.stopPropagation();
+  if (tc.auth !== 'ok' || !tc.presenceReady) { if (tc.auth !== 'ok') showTab('chat', document.querySelector('.nav-btn[data-tab="chat"]')); return; }
+  let m = document.getElementById('tc-status-menu');
+  if (m) { tcCloseStatusMenu(); return; }
+  m = document.createElement('div'); m.id = 'tc-status-menu'; m.className = 'tc-status-menu';
+  m.innerHTML = `<div class="tc-sm-head">${esc(currentUser.name || tcMe())}<span>${esc(tcMe())}</span></div>` +
+    TC_STATUSES.map(s => `<button class="tc-sm-item${s.key === tc.myStatus ? ' on' : ''}" onclick="tcSetMyStatus('${s.key}')"><span class="tc-dot s-${s.key} inline"></span>${s.label}${s.key === tc.myStatus ? '<span class="tc-sm-check">✓</span>' : ''}</button>`).join('') +
+    '<div class="tc-sm-note">Do not disturb also mutes chat alerts.</div>';
+  document.body.appendChild(m);
+  const r = e.currentTarget.getBoundingClientRect();
+  const w = 240;
+  m.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.right - w)) + 'px';
+  m.style.top = (r.bottom + 8) + 'px';
+  if (r.bottom + 8 + m.offsetHeight > window.innerHeight) m.style.top = Math.max(12, r.top - m.offsetHeight - 8) + 'px';
+}
+function tcCloseStatusMenu() { const m = document.getElementById('tc-status-menu'); if (m) m.remove(); }
+document.addEventListener('click', e => { if (!e.target.closest('#tc-status-menu')) tcCloseStatusMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') tcCloseStatusMenu(); });
+
+function tcRenderPresence() {
+  tcRenderList(); tcRenderHeader();
+  const mine = tcPresence(tcMe());
+  const md = document.getElementById('me-status-dot');
+  if (md) { md.className = 'tc-dot s-' + mine.key; md.style.display = (tc.auth === 'ok' && tc.presenceReady) ? '' : 'none'; }
+  const wrap = document.getElementById('me-status-wrap');
+  if (wrap) wrap.title = (tc.auth === 'ok' && tc.presenceReady) ? 'Status: ' + mine.label + ' — click to change' : '';
 }
 
 // ── FOUNDER CHAT ──────────────────────────────
