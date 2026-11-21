@@ -1669,6 +1669,7 @@
       <label class="form-label">Database</label>
       <div id="mig-note" style="font-size:12px;color:var(--text-mid);line-height:1.6;margin-bottom:10px"></div>
       <button class="btn-primary" id="mig-btn" style="margin-top:0" onclick="migrateToSupabase()">Move my data to Supabase</button>
+      <button class="btn-primary" id="mig-b2b-btn" style="margin-top:0;display:none" onclick="migrateB2BToSupabase()">Move B2B leads to Supabase</button>
       <div id="mig-status" style="font-size:12px;color:var(--text);line-height:1.7;margin-top:10px"></div>
     </div>
     <div class="form-group" style="border-top:1px solid var(--border);padding-top:16px">
@@ -2151,6 +2152,8 @@ function restoreSidebarCollapse() {
 // automatic copy every 5 minutes (tools/supabase/sheet-mirror.gs). Wedding Planners
 // and Corporates stay on the Sheet for now (Phase 2 — their automations use it).
 let SB_MODE = false;
+let SB_B2B = false; // Phase 2: Wedding Planners + Corporates moved too
+const SB_B2B_TABLES = { 'Wedding Planners': 'wedding_planners', 'Corporates': 'corporates' };
 const SB_TABLES = {
   'Orders': 'orders', 'Demo Orders': 'demo_orders', 'P&L': 'pnl', 'Demo P&L': 'demo_pnl',
   'Social Media Calendar': 'social_calendar', 'Tasks': 'tasks', 'Team': 'team', 'Activity Log': 'activity_log',
@@ -2161,8 +2164,11 @@ const SB_COLS = {
   orders: ORDER_COLS, demo_orders: ORDER_COLS, pnl: ['Category','Amount'], demo_pnl: ['Category','Amount'],
   social_calendar: ['Date','Day','Platform','Post Type','Content Type','Content Idea','Caption','Status','Notes'],
   tasks: ['ID','Text','Category','Done'], team: ['Name','Role','Responsibilities'], activity_log: ['Timestamp','Actor','Category','Message'],
+  wedding_planners: ['Name','Email','Phone','Website','Instagram','Status','Last Contacted','Follow-up Due','Draft ID','Thread ID','Notes'],
+  corporates: ['S.No','Company Name','City','Industry / Vertical','Est. Size','Website','LinkedIn (Company Page)','Instagram','Exact Buyer Title to Target',
+    'Why This Title (Not HR Head)','LinkedIn Sales Nav Search Query','Alt Search (Apollo / Lusha)',"Why They'd Buy",'Status','Follow-up Due','Notes'],
 };
-function sbTableFor(sheet) { return SB_MODE ? SB_TABLES[sheet] || null : null; }
+function sbTableFor(sheet) { return (SB_MODE && SB_TABLES[sheet]) || (SB_MODE && SB_B2B && SB_B2B_TABLES[sheet]) || null; }
 function sbClean(row) { const o = {}; for (const k in row) if (k[0] !== '_') o[k] = row[k] == null ? '' : String(row[k]).trim(); return o; }
 function sbFields(tbl, fields) {
   const o = {}; (SB_COLS[tbl] || []).forEach(c => { if (fields && c in fields) o[c] = fields[c] == null ? '' : String(fields[c]); }); return o;
@@ -2230,7 +2236,7 @@ function storyosSignIn() {
 async function sbBoot() {
   if (!sb) { document.getElementById('signin-screen').style.display = 'flex'; showSignInErr('Sign-in couldn\'t load — check your internet connection and refresh.'); return; }
   const returning = /[?&]code=/.test(location.search);
-  try { const st = await sb.rpc('storyos_status'); SB_MODE = !!(st.data && st.data.migrated); } catch (e) {}
+  try { const st = await sb.rpc('storyos_status'); SB_MODE = !!(st.data && st.data.migrated); SB_B2B = !!(st.data && st.data.b2b_migrated); } catch (e) {}
   const { data } = await sb.auth.getSession();
   if (returning) history.replaceState(null, '', location.pathname + location.hash);
   const email = data && data.session && data.session.user && (data.session.user.email || '').toLowerCase();
@@ -2311,11 +2317,45 @@ async function migrateToSupabase() {
   await syncAll();
   renderMigrationPanel();
 }
+async function migrateB2BToSupabase() {
+  if (!currentUser || !currentUser.isAdmin || !sb || !SB_MODE) return;
+  if (!confirm('Move the B2B lead lists (Wedding Planners + Corporates) from the Google Sheet into Supabase?\n\nYour Google Sheet is not changed. Do this only after Claude has paused the B2B automations.')) return;
+  const btn = document.getElementById('mig-b2b-btn'), out = document.getElementById('mig-status');
+  btn.disabled = true; out.innerHTML = 'Copying… please keep this window open.';
+  const lines = []; let failed = false;
+  const show = () => { out.innerHTML = lines.map(l => '<div>' + l + '</div>').join(''); };
+  for (const [tab, tbl] of [['Wedding Planners', 'wedding_planners'], ['Corporates', 'corporates']]) {
+    try {
+      const values = await sheetValues(tab);
+      if (values === null) { lines.push(`• ${esc(tab)}: no tab in the sheet — skipped`); show(); continue; }
+      const rows = sheetObjects(values).map(r => sbFields(tbl, r)).filter(r => Object.values(r).some(v => v));
+      const head = await sb.from(tbl).select('_id', { count: 'exact', head: true });
+      if (head.error) throw head.error;
+      if (head.count > 0) { lines.push(`• ${esc(tab)}: already in Supabase (${head.count}) — left as is`); show(); continue; }
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await sb.from(tbl).insert(rows.slice(i, i + 500));
+        if (error) throw error;
+      }
+      lines.push(`✓ ${esc(tab)}: ${rows.length} row${rows.length === 1 ? '' : 's'} copied`); show();
+    } catch (e) { failed = true; lines.push(`✗ ${esc(tab)}: ${esc(e.message || String(e))}`); show(); }
+  }
+  if (failed) { lines.push('<b>Something didn\'t copy — nothing has been switched over yet.</b> Send a screenshot of this, then click the button again.'); show(); btn.disabled = false; return; }
+  const mk = await sb.rpc('mark_b2b_migrated');
+  if (mk.error) { lines.push('✗ ' + esc(mk.error.message)); show(); btn.disabled = false; return; }
+  SB_B2B = true;
+  lines.push('<b>Done — B2B leads now live in Supabase.</b> Tell Claude so the B2B automations can be switched on again.');
+  show();
+  logActivity('System', actorName() + ' moved the B2B lead lists to Supabase');
+  await syncAll();
+  renderMigrationPanel();
+}
 function renderMigrationPanel() {
   const box = document.getElementById('mig-panel'); if (!box) return;
   box.style.display = currentUser && currentUser.isAdmin ? '' : 'none';
   const btn = document.getElementById('mig-btn'), note = document.getElementById('mig-note');
-  if (SB_MODE) { btn.style.display = 'none'; note.innerHTML = '✓ StoryOS data is stored in <b>Supabase</b>. The Google Sheet tabs are an automatic copy.'; }
+  const b2bBtn = document.getElementById('mig-b2b-btn');
+  if (b2bBtn) b2bBtn.style.display = SB_MODE && !SB_B2B ? '' : 'none';
+  if (SB_MODE) { btn.style.display = 'none'; note.innerHTML = '✓ StoryOS data is stored in <b>Supabase</b>. The Google Sheet tabs are an automatic copy.' + (SB_B2B ? ' B2B leads too.' : ' <br>B2B leads (Wedding Planners, Corporates) are still on the sheet.'); }
   else { btn.style.display = ''; note.textContent = 'Copies Orders, P&L, Social calendar, Tasks, Team, Activity Log and Team Access from the Google Sheet into Supabase. The sheet isn\'t changed.'; }
 }
 
@@ -3182,6 +3222,8 @@ function executeAgentAction(action) {
     executeOrderAction(action.op, payload);
   } else if (action.module === 'social') {
     executeSocialAction(action.op, payload);
+  } else if (action.module === 'b2b') {
+    executeB2BAction(action.op, payload);
   }
 }
 
@@ -3202,6 +3244,19 @@ async function executeOrderAction(op, payload) {
   Object.assign(row, fields);
   renderAll();
   logActivity('Orders', actorName() + ' (via chat) updated ' + row['Order ID'] + ': ' + Object.entries(fields).map(([k, v]) => k + ' → ' + v).join(', '));
+}
+// New wedding-planner lead from the chat assistant — Status "New Lead" so the outreach automation picks it up.
+async function executeB2BAction(op, payload) {
+  if (op !== 'add' || !userCan('b2b')) return;
+  const name = String(payload.name || '').trim();
+  if (!name) return;
+  const fields = { Name: name, Email: payload.email || '', Phone: payload.phone || '', Website: payload.website || '', Instagram: payload.instagram || '', Status: 'New Lead' };
+  const result = await postToSheet({ action: 'addRow', sheet: 'Wedding Planners', fields });
+  if (!result.ok) return;
+  if (!store.weddingPlanners) store.weddingPlanners = [];
+  store.weddingPlanners.push(fields);
+  renderB2B();
+  logActivity('B2B', actorName() + ' (via chat) added wedding planner lead ' + name);
 }
 async function executeSocialAction(op, payload) {
   if (op !== 'add' || !userCan('social')) return;
