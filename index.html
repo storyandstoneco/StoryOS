@@ -2256,10 +2256,17 @@ function sheetObjects(values) {
   return values.slice(1).map(r => { const o = {}; headers.forEach((h, i) => { if (h) o[h] = String(r[i] == null ? '' : r[i]).trim(); }); return o; })
     .filter(o => Object.values(o).some(v => v));
 }
-// The P&L tab is a formatted report: numbered expense lines with Category + "₹ 1,234".
+// The P&L tab is a formatted report. Its FIRST numbered block is the expense summary
+// (Printing, Stationery, Misc, … then "Total Expenses"); the numbered blocks further down
+// are the detail lines behind each category, so only the first block is imported.
 function pnlFromReport(values) {
-  return (values || []).filter(r => /^\d+$/.test(String(r[4] || '').trim()) && String(r[5] || '').trim() && /\d/.test(String(r[6] || '')))
-    .map(r => ({ Category: String(r[5]).trim(), Amount: String(r[6]).replace(/[^\d.\-]/g, '') }));
+  const out = []; let started = false;
+  for (const r of (values || [])) {
+    const isLine = /^\d+$/.test(String(r[4] || '').trim()) && String(r[5] || '').trim() && /\d/.test(String(r[6] || ''));
+    if (isLine) { started = true; out.push({ Category: String(r[5]).trim(), Amount: String(r[6]).replace(/[^\d.\-]/g, '') }); }
+    else if (started) break;
+  }
+  return out;
 }
 async function migrateToSupabase() {
   if (!currentUser || !currentUser.isAdmin || !sb) return;
