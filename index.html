@@ -946,6 +946,18 @@
     .tc-sm-item.on { font-weight: 600; }
     .tc-sm-check { margin-left: auto; color: var(--terra); }
     .tc-sm-note { font-size: 11px; color: var(--text-dim); padding: 6px 10px 4px; }
+    /* ── CHAT POP-UPS ── */
+    #tc-toasts { position: fixed; right: 24px; bottom: 96px; z-index: 450; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; pointer-events: none; }
+    .tc-toast { pointer-events: auto; display: flex; gap: 12px; align-items: flex-start; width: 340px; max-width: calc(100vw - 32px); padding: 14px 16px; background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--terra); border-radius: 16px; box-shadow: var(--shadow-lg); text-align: left; cursor: pointer; animation: tcIn .25s ease; font-family: 'Jost', sans-serif; transition: opacity .3s, transform .3s; }
+    .tc-toast.out { opacity: 0; transform: translateX(20px); }
+    .tc-toast:hover { border-color: var(--tint-2); border-left-color: var(--terra); }
+    .tc-toast .tc-av { width: 34px; height: 34px; font-size: 12px; }
+    .tc-toast-body { min-width: 0; flex: 1; }
+    .tc-toast-top { display: flex; align-items: baseline; gap: 8px; font-size: 13.5px; color: var(--text); }
+    .tc-toast-top span { font-size: 11.5px; color: var(--text-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tc-toast-text { font-size: 13px; color: var(--text-mid); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    @keyframes tcIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (max-width: 768px) { #tc-toasts { right: 16px; left: 16px; top: 72px; bottom: auto; align-items: stretch; } .tc-toast { width: auto; } }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
@@ -2401,6 +2413,8 @@ async function tcStart() {
   const { data } = await sb.auth.getSession();
   if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
   await tcOnSession(data.session);
+  const deep = (location.hash.match(/^#chat=(.+)$/) || [])[1];
+  if (deep) { history.replaceState(null, '', location.pathname); tcGoTo(decodeURIComponent(deep)); }
   if (sessionStorage.getItem('sos_open_chat')) {
     sessionStorage.removeItem('sos_open_chat');
     showTab('chat', document.querySelector('.nav-btn[data-tab="chat"]'));
@@ -2507,6 +2521,7 @@ function tcIngest(rows, live) {
   if (live) tcAlert(added);
 }
 function tcOnOpen() {
+  tcEnableAlerts();
   tcRenderAll(true);
   if (window.innerWidth > 768) { tcMarkRead(tc.active); tcRenderAll(); setTimeout(() => document.getElementById('tc-input')?.focus(), 50); }
   tcCatchUp();
@@ -2685,18 +2700,66 @@ async function tcPost(msg) {
 function tcRetry(id) { const m = tc.msgs.find(x => x.ID === id); if (m) tcPost(m); }
 
 function tcEnableAlerts() {
-  if (!('Notification' in window)) return;
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
   Notification.requestPermission().then(() => tcRenderList());
+}
+// Service worker for notifications (needed on Android; also lets a click focus StoryOS)
+let tcSW = null;
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').then(r => { tcSW = r; }).catch(() => {});
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'open-chat' && currentUser) tcGoTo(e.data.channel);
+  });
+}
+function tcGoTo(channel) {
+  showTab('chat', document.querySelector('.nav-btn[data-tab="chat"]'));
+  if (channel) tcOpen(channel);
+}
+// Soft two-note chime (Web Audio — no sound file needed)
+let tcAudio = null;
+function tcChime() {
+  try {
+    tcAudio = tcAudio || new (window.AudioContext || window.webkitAudioContext)();
+    if (tcAudio.state === 'suspended') tcAudio.resume();
+    const t = tcAudio.currentTime;
+    [[880, 0], [1320, 0.12]].forEach(([f, d]) => {
+      const o = tcAudio.createOscillator(), g = tcAudio.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.12, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.35);
+      o.connect(g).connect(tcAudio.destination); o.start(t + d); o.stop(t + d + 0.4);
+    });
+  } catch (e) {}
+}
+// In-app pop-up card (always works, even when browser/Mac notifications are blocked)
+function tcToast(m, info, more) {
+  let box = document.getElementById('tc-toasts');
+  if (!box) { box = document.createElement('div'); box.id = 'tc-toasts'; document.body.appendChild(box); }
+  const name = m['Sender Name'] || m['Sender Email'].split('@')[0];
+  const el = document.createElement('button');
+  el.className = 'tc-toast';
+  el.innerHTML = `<div class="tc-av">${esc(initialsOf(name))}</div>
+    <div class="tc-toast-body"><div class="tc-toast-top"><b>${esc(name)}</b>${info.isCh ? `<span>#${esc(info.title)}</span>` : '<span>Direct message</span>'}</div>
+    <div class="tc-toast-text">${esc(m.Text.slice(0, 160))}${more ? ` <i>(+${more} more)</i>` : ''}</div></div>`;
+  el.onclick = () => { el.remove(); tcGoTo(m.Channel); };
+  box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 7000);
 }
 function tcAlert(newMsgs) {
   const fromOthers = newMsgs.filter(m => m['Sender Email'] !== tcMe() && !tcViewing(m.Channel));
-  if (!fromOthers.length || !('Notification' in window) || Notification.permission !== 'granted' || tc.myStatus === 'dnd') return;
+  if (!fromOthers.length || tc.myStatus === 'dnd') return;
   const m = fromOthers[fromOthers.length - 1];
   const info = tcConvInfo(m.Channel);
+  const more = fromOthers.length - 1;
+  if (!document.hidden) { tcToast(m, info, more); tcChime(); return; } // StoryOS is on screen → in-app card + chime
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const title = (m['Sender Name'] || 'New message') + (info.isCh ? ' in #' + info.title : '');
+  const opts = { body: m.Text.slice(0, 140) + (more ? `  (+${more} more)` : ''), tag: 'storyos-chat-' + m.Channel, renotify: true,
+                 icon: 'logo.png', badge: 'logo.png', data: { channel: m.Channel } };
+  if (tcSW && tcSW.showNotification) { tcSW.showNotification(title, opts).catch(() => {}); return; }
   try {
-    const n = new Notification((m['Sender Name'] || 'New message') + (info.isCh ? ' in #' + info.title : ''),
-      { body: m.Text.slice(0, 140) + (fromOthers.length > 1 ? `  (+${fromOthers.length - 1} more)` : ''), tag: 'storyos-chat' });
-    n.onclick = () => { window.focus(); showTab('chat', document.querySelector('.nav-btn[data-tab="chat"]')); tcOpen(m.Channel); n.close(); };
+    const n = new Notification(title, opts);
+    n.onclick = () => { window.focus(); tcGoTo(m.Channel); n.close(); };
   } catch (e) {}
 }
 
