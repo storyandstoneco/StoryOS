@@ -847,8 +847,80 @@
       .topbar-title { font-size: 19px; }
       .stat-value { font-size: 24px; }
     }
+    /* ── TEAM CHAT (Teams-style: channels + direct messages) ── */
+    .nav-btn[data-tab="chat"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1'/%3E%3C/svg%3E"); }
+    body.tc-active .chat-fab, body.tc-active .chat-panel { display: none !important; }
+    .tc-wrap { display: grid; grid-template-columns: 300px 1fr; height: calc(100vh - 150px); min-height: 460px; background: #fff; border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow); overflow: hidden; }
+    .tc-list { border-right: 1px solid var(--border); background: #FBF9F7; display: flex; flex-direction: column; min-height: 0; }
+    .tc-list-head { padding: 18px 18px 10px; font-family: 'Playfair Display', Georgia, serif; font-size: 20px; font-weight: 600; color: var(--text); }
+    .tc-list-scroll { flex: 1; overflow-y: auto; padding: 0 10px 12px; }
+    .tc-section { font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); padding: 14px 10px 6px; }
+    .tc-item { display: flex; align-items: center; gap: 11px; width: 100%; padding: 9px 10px; border: none; background: none; border-radius: 12px; cursor: pointer; text-align: left; color: var(--text); transition: background .12s; }
+    .tc-item:hover { background: var(--tint); }
+    .tc-item.active { background: #fff; box-shadow: var(--shadow); }
+    .tc-av { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 600; color: #fff; background: linear-gradient(135deg, #8A3D10, #4D1F05); }
+    .tc-av.ch { border-radius: 11px; background: var(--tint-2); color: var(--terra); font-size: 16px; font-weight: 500; }
+    .tc-item-body { flex: 1; min-width: 0; }
+    .tc-item-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .tc-item-name { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tc-item-time { font-size: 10.5px; color: var(--text-dim); flex-shrink: 0; }
+    .tc-item-prev { font-size: 12px; color: var(--text-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .tc-item.unread .tc-item-name, .tc-item.unread .tc-item-prev { font-weight: 600; color: var(--text); }
+    .tc-unread { background: var(--terra); color: #fff; font-size: 10px; font-weight: 600; border-radius: 99px; min-width: 18px; height: 18px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .tc-alerts { margin: 6px 12px 14px; padding: 9px 12px; border: 1px dashed var(--border-strong); border-radius: 12px; background: none; color: var(--text-mid); font-size: 12px; cursor: pointer; }
+    .tc-alerts:hover { border-color: var(--terra); color: var(--terra); }
+    .tc-conv { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .tc-conv-head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+    .tc-conv-title { font-family: 'Playfair Display', Georgia, serif; font-size: 18px; font-weight: 600; line-height: 1.2; }
+    .tc-conv-sub { font-size: 12px; color: var(--text-mid); }
+    .tc-back { display: none; border: none; background: none; font-size: 26px; line-height: 1; color: var(--terra); cursor: pointer; padding: 0 4px 2px 0; }
+    .tc-msgs { flex: 1; overflow-y: auto; padding: 18px 22px 10px; background: var(--cream); }
+    .tc-day { text-align: center; margin: 14px 0 10px; }
+    .tc-day span { font-size: 11px; font-weight: 500; color: var(--text-mid); background: #fff; border: 1px solid var(--border); border-radius: 99px; padding: 3px 12px; }
+    .tc-row { display: flex; gap: 10px; align-items: flex-end; margin-top: 2px; }
+    .tc-row.first { margin-top: 12px; }
+    .tc-row .tc-av { width: 30px; height: 30px; font-size: 11px; }
+    .tc-row .tc-av.blank { visibility: hidden; }
+    .tc-row.me { flex-direction: row-reverse; }
+    .tc-bubble-wrap { max-width: min(72%, 560px); display: flex; flex-direction: column; }
+    .tc-row.me .tc-bubble-wrap { align-items: flex-end; }
+    .tc-meta { font-size: 11px; color: var(--text-mid); margin: 0 4px 3px; }
+    .tc-meta b { color: var(--text); font-weight: 600; margin-right: 6px; }
+    .tc-bubble { background: #fff; border: 1px solid var(--border); border-radius: 16px; border-bottom-left-radius: 5px; padding: 8px 13px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; color: var(--text); }
+    .tc-row.me .tc-bubble { background: var(--terra); border-color: var(--terra); color: #fff; border-bottom-left-radius: 16px; border-bottom-right-radius: 5px; }
+    .tc-bubble a { color: inherit; text-decoration: underline; }
+    .tc-mention { background: var(--amber-bg); color: var(--amber); border-radius: 4px; padding: 0 3px; font-weight: 600; }
+    .tc-row.me .tc-mention { background: rgba(255,255,255,.2); color: #fff; }
+    .tc-status { font-size: 10.5px; color: var(--text-dim); margin: 3px 4px 0; }
+    .tc-status.failed { color: var(--red); cursor: pointer; text-decoration: underline; }
+    .tc-empty { text-align: center; color: var(--text-mid); padding: 60px 20px; font-size: 13.5px; }
+    .tc-empty .big { font-size: 34px; margin-bottom: 8px; }
+    .tc-setup { max-width: 520px; margin: 40px auto; background: #fff; border: 1px solid var(--border); border-radius: var(--r-lg); padding: 26px; font-size: 13.5px; color: var(--text-mid); line-height: 1.6; }
+    .tc-setup h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+    .tc-setup code { display: block; margin: 12px 0; padding: 10px 12px; background: var(--tint); color: var(--terra-dark); border-radius: 10px; font-size: 12.5px; white-space: normal; }
+    .tc-compose { display: flex; align-items: flex-end; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--border); background: #fff; }
+    .tc-compose textarea { flex: 1; resize: none; max-height: 140px; min-height: 42px; padding: 10px 16px; border: 1px solid var(--border-strong); border-radius: 21px; font-size: 13.5px; line-height: 1.45; color: var(--text); background: #fff; outline: none; }
+    .tc-compose textarea:focus { border-color: var(--terra); box-shadow: 0 0 0 3px rgba(114,48,10,.12); }
+    .tc-compose button { height: 42px; padding: 0 20px; border: none; border-radius: 999px; background: var(--terra); color: #fff; font-size: 13.5px; font-weight: 500; cursor: pointer; }
+    .tc-compose button:hover { background: var(--terra-dark); }
+    .tc-compose button:disabled { opacity: .45; cursor: default; }
+    .tc-google { display: inline-flex; align-items: center; gap: 10px; padding: 11px 20px; border: 1px solid var(--border-strong); border-radius: 999px; background: #fff; color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: var(--shadow-sm); }
+    .tc-google:hover { border-color: var(--terra); color: var(--terra); }
+    .tc-hint { font-size: 10.5px; color: var(--text-dim); padding: 0 18px 8px; background: #fff; }
+    @media (max-width: 768px) {
+      .tc-wrap { grid-template-columns: 1fr; height: calc(100dvh - 106px); min-height: 0; border-radius: var(--r); }
+      .tc-wrap .tc-conv { display: none; }
+      .tc-wrap.conv-open .tc-list { display: none; }
+      .tc-wrap.conv-open .tc-conv { display: flex; }
+      .tc-back { display: block; }
+      .tc-msgs { padding: 14px 12px 8px; }
+      .tc-bubble-wrap { max-width: 82%; }
+      .tc-hint { display: none; }
+      #tab-chat { margin: -2px -4px 0; }
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -929,6 +1001,7 @@
 
       <nav class="sidebar-nav">
         <button class="nav-btn active" data-tab="home"    onclick="showTab('home',this)">Home</button>
+        <button class="nav-btn"        data-tab="chat"    onclick="showTab('chat',this)">Team Chat<span class="nav-badge" id="tc-badge"></span></button>
         <button class="nav-btn"        data-tab="orders"  onclick="showTab('orders',this)">Orders</button>
         <button class="nav-btn"        data-tab="revenue" onclick="showTab('revenue',this)">Revenue</button>
         <button class="nav-btn"        data-tab="products"onclick="showTab('products',this)">Products</button>
@@ -1472,6 +1545,38 @@
         </div>
 
         <!-- ── NOTIFICATIONS ── -->
+        <!-- ── TEAM CHAT ── -->
+        <div class="tab-pane" id="tab-chat">
+          <div class="tc-wrap" id="tc-wrap">
+            <aside class="tc-list">
+              <div class="tc-list-head">Chats</div>
+              <div class="tc-list-scroll">
+                <div class="tc-section">Channels</div>
+                <div id="tc-channels"></div>
+                <div class="tc-section">Direct messages</div>
+                <div id="tc-dms"></div>
+              </div>
+              <button class="tc-alerts" id="tc-alerts-btn" onclick="tcEnableAlerts()" style="display:none">🔔 Turn on desktop alerts for new messages</button>
+            </aside>
+            <section class="tc-conv">
+              <header class="tc-conv-head">
+                <button class="tc-back" onclick="tcBack()" aria-label="Back to chats">‹</button>
+                <div class="tc-av" id="tc-conv-av"></div>
+                <div style="min-width:0">
+                  <div class="tc-conv-title" id="tc-conv-title"></div>
+                  <div class="tc-conv-sub" id="tc-conv-sub"></div>
+                </div>
+              </header>
+              <div class="tc-msgs" id="tc-msgs"></div>
+              <div class="tc-compose">
+                <textarea id="tc-input" rows="1" maxlength="4000" placeholder="Type a message" oninput="tcAutosize(this)" onkeydown="tcKey(event)"></textarea>
+                <button id="tc-send" onclick="tcSend()">Send</button>
+              </div>
+              <div class="tc-hint">Enter to send · Shift + Enter for a new line · type @name to mention someone</div>
+            </section>
+          </div>
+        </div>
+
         <div class="tab-pane" id="tab-notifications">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
             <p style="font-size:13px;color:var(--text-mid)">A live feed of everything happening across StoryOS — orders, team changes, and outreach.</p>
@@ -1713,7 +1818,7 @@ const TAB_TITLES = {
   tasks:'Tasks', social:'Social Media Calendar',
   products:'Products', b2b:'B2B Outreach', team:'Team',
   'social-insights':'Social Insights', conversations:'Conversations',
-  'team-access':'Team Access', notifications:'Notifications', documents:'Documents',
+  'team-access':'Team Access', notifications:'Notifications', documents:'Documents', chat:'Team Chat',
 };
 
 // ── CLOCK ─────────────────────────────────────
@@ -1822,6 +1927,7 @@ function showSignInErr(msg) {
 }
 
 function signOutOfStoryOS() {
+  tcSignOut();
   localStorage.removeItem('sos_user_email');
   localStorage.removeItem('sos_user_name');
   currentUser = null;
@@ -1892,6 +1998,7 @@ function applyPermissions() {
   document.querySelectorAll('.sidebar-nav .nav-btn[data-tab]').forEach(btn => {
     const tab = btn.getAttribute('data-tab');
     if (tab === 'team-access') { btn.style.display = currentUser.isAdmin ? '' : 'none'; return; }
+    if (tab === 'chat') { btn.style.display = ''; return; } // Team Chat is open to every signed-in member
     btn.style.display = (currentUser.isAdmin || currentUser.modules.has(tab)) ? '' : 'none';
   });
   if (!currentUser.isAdmin && !currentUser.modules.has('home')) {
@@ -1921,6 +2028,7 @@ function bootApp() {
   renderTasks();
   renderTeam();
   syncAll();
+  tcStart();
 }
 
 function showSetupErr(msg) {
@@ -1939,7 +2047,7 @@ function goHome() {
 }
 
 function showTab(id, btn) {
-  if (currentUser && !currentUser.isAdmin && id !== 'team-access' && !currentUser.modules.has(id)) return;
+  if (currentUser && !currentUser.isAdmin && id !== 'team-access' && id !== 'chat' && !currentUser.modules.has(id)) return;
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
@@ -1950,6 +2058,8 @@ function showTab(id, btn) {
   if (id === 'team-access') renderTeamAccessList();
   if (id === 'notifications') renderNotifications();
   if (id === 'documents') renderDocuments();
+  document.body.classList.toggle('tc-active', id === 'chat');
+  if (id === 'chat') tcOnOpen();
   // placeholder: social-insights and conversations have no async init needed
 }
 
@@ -2199,6 +2309,346 @@ function updateNotifBadge() {
   const unread = (store.activityLog || []).filter(r => parseActivityTs(r.Timestamp) > lastSeenMs).length;
   b.textContent = unread > 99 ? '99+' : unread;
   b.style.display = unread ? 'inline' : 'none';
+}
+
+// ── TEAM CHAT ─────────────────────────────────
+// Teams-style chat: channels + 1:1 direct messages, stored in Supabase (not the
+// Google Sheet). Sign-in is "Sign in with Google" via Supabase Auth; the database's
+// privacy rules (tools/supabase/01-team-chat.sql) only let team members read
+// messages, and a DM only by its two participants. New messages arrive live
+// over Supabase Realtime.
+const SB_URL = 'https://qyphfzydndrffbokwwne.supabase.co';
+const SB_KEY = 'sb_publishable_HHWFyykVjXR1aDA_f9ILfg_kpeUR9eb'; // publishable key — safe in the browser; access is enforced by RLS
+const TC_CHANNELS = [
+  { id: 'general', name: 'General',             desc: 'Announcements and everyday chat for the whole team' },
+  { id: 'orders',  name: 'Orders & Production', desc: 'Order updates, printing and dispatch' },
+  { id: 'design',  name: 'Design',              desc: 'Magazines, newspapers and frames in progress' },
+];
+const tc = { msgs: [], ids: new Set(), active: 'general', ready: false, missing: false, notMember: false, auth: 'checking', sbEmail: '',
+             sub: null, reconnect: false, convOpen: false, baseTitle: document.title, started: false };
+// Created at page load so it can finish a Google sign-in redirect (?code=…) straight away.
+const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce', storageKey: 'sos_sb_auth' },
+}) : null;
+
+function tcMe() { return ((currentUser && currentUser.email) || '').trim().toLowerCase(); }
+function tcDmId(email) { return 'dm:' + [tcMe(), email.trim().toLowerCase()].sort().join('|'); }
+function tcMembers() {
+  const c = teamAccessCache; if (!c || c.emailCol < 0) return [];
+  const seen = new Set();
+  return c.rows.map(r => ({ email: (r[c.emailCol] || '').trim().toLowerCase(), name: (r[c.nameCol] || '').trim(), admin: /^y/i.test(r[c.adminCol] || '') }))
+    .filter(m => m.email && !seen.has(m.email) && seen.add(m.email))
+    .map(m => ({ ...m, name: m.name || m.email.split('@')[0] }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+function tcOthers() { return tcMembers().filter(m => m.email !== tcMe()); }
+function tcConvInfo(ch) {
+  const c = TC_CHANNELS.find(x => x.id === ch);
+  if (c) return { title: c.name, sub: c.desc, av: '#', isCh: true };
+  const other = String(ch).slice(3).split('|').find(e => e !== tcMe()) || tcMe();
+  const m = tcMembers().find(x => x.email === other);
+  const name = m ? m.name : other.split('@')[0];
+  return { title: name, sub: other, av: initialsOf(name), isCh: false };
+}
+function tcReadMap() { try { return JSON.parse(localStorage.getItem('sos_tc_read') || '{}'); } catch { return {}; } }
+function tcMarkRead(ch) {
+  const last = tc.msgs.filter(m => m.Channel === ch).reduce((mx, m) => Math.max(mx, parseActivityTs(m.Timestamp)), 0);
+  const map = tcReadMap();
+  if (last > (map[ch] || 0)) { map[ch] = last; try { localStorage.setItem('sos_tc_read', JSON.stringify(map)); } catch {} }
+}
+function tcUnread(ch) {
+  const seen = tcReadMap()[ch] || 0;
+  return tc.msgs.filter(m => m.Channel === ch && m['Sender Email'] !== tcMe() && parseActivityTs(m.Timestamp) > seen).length;
+}
+function tcViewing(ch) {
+  return document.getElementById('tab-chat')?.classList.contains('active') && !document.hidden &&
+    tc.active === ch && (window.innerWidth > 768 || tc.convOpen);
+}
+
+// ── connection + sign-in ──
+async function tcStart() {
+  if (tc.started) return; tc.started = true;
+  if (!sb) { tc.auth = 'unavailable'; tcRenderAll(); return; }
+  sb.auth.onAuthStateChange((_ev, session) => { setTimeout(() => tcOnSession(session), 0); });
+  const { data } = await sb.auth.getSession();
+  if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
+  await tcOnSession(data.session);
+  if (sessionStorage.getItem('sos_open_chat')) {
+    sessionStorage.removeItem('sos_open_chat');
+    showTab('chat', document.querySelector('.nav-btn[data-tab="chat"]'));
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !currentUser || tc.auth !== 'ok') return;
+  if (tcViewing(tc.active)) tcMarkRead(tc.active);
+  tcCatchUp();
+});
+window.addEventListener('resize', () => { if (tc.started) tcRenderList(); });
+
+async function tcOnSession(session) {
+  if (!currentUser) return;
+  const email = ((session && session.user && session.user.email) || '').toLowerCase();
+  if (!session) { tcTeardown(); tc.auth = 'signin'; tcRenderAll(); return; }
+  if (email !== tcMe()) { tcTeardown(); tc.auth = 'mismatch'; tc.sbEmail = email; tcRenderAll(); return; }
+  if (tc.auth === 'ok') return; // token refreshes etc.
+  tc.auth = 'ok'; tcRenderAll();
+  if (currentUser.isAdmin) await tcSyncMembers();
+  await tcLoad();
+  tcSubscribe();
+}
+function tcSignIn() {
+  if (!sb) return;
+  sessionStorage.setItem('sos_open_chat', '1');
+  sb.auth.signInWithOAuth({ provider: 'google', options: {
+    redirectTo: location.origin + location.pathname,
+    queryParams: { login_hint: tcMe(), prompt: 'select_account' },
+  } });
+}
+async function tcSwitchAccount() { if (sb) { await sb.auth.signOut(); } tcSignIn(); }
+function tcTeardown() { if (tc.sub && sb) { sb.removeChannel(tc.sub); } tc.sub = null; }
+async function tcSignOut() {
+  tcTeardown();
+  if (sb) { try { await sb.auth.signOut(); } catch (e) {} }
+  Object.assign(tc, { msgs: [], ids: new Set(), ready: false, missing: false, notMember: false, auth: 'checking', started: false, convOpen: false });
+  document.title = tc.baseTitle;
+}
+
+// The admin's StoryOS keeps the chat member list in step with Team Access.
+async function tcSyncMembers() {
+  const list = tcMembers();
+  if (!list.length) return;
+  const rows = list.map(m => ({ email: m.email, name: m.name, is_admin: m.admin, updated_at: new Date().toISOString() }));
+  const up = await sb.from('members').upsert(rows, { onConflict: 'email' });
+  if (up.error) { if (/members|relation|schema cache/i.test(up.error.message || '')) tc.missing = true; return; }
+  const { data } = await sb.from('members').select('email');
+  const keep = new Set(list.map(m => m.email).concat([tcMe()]));
+  const gone = (data || []).map(r => r.email).filter(e => !keep.has(e));
+  if (gone.length) await sb.from('members').delete().in('email', gone);
+}
+
+function tcRow(r) {
+  return { ID: r.id, Timestamp: 't' + Date.parse(r.created_at), Channel: r.channel, 'Sender Email': (r.sender_email || '').toLowerCase(),
+           'Sender Name': r.sender_name || '', Text: r.body || '' };
+}
+async function tcLoad() {
+  const { data, error } = await sb.from('messages').select('*').order('created_at', { ascending: false }).limit(1500);
+  if (error) {
+    tc.missing = /messages|relation|schema cache|does not exist/i.test(error.message || '');
+    tc.ready = true; tcRenderAll(); return;
+  }
+  const me = await sb.from('members').select('email').eq('email', tcMe()).maybeSingle();
+  tc.notMember = !me.data;
+  tc.missing = false;
+  tcIngest((data || []).reverse(), false);
+  tc.ready = true; tcRenderAll(true);
+}
+async function tcCatchUp() {
+  if (!sb || tc.auth !== 'ok' || !tc.ready) return;
+  const real = tc.msgs.filter(m => !m.pending);
+  const since = real.length ? new Date(parseActivityTs(real[real.length - 1].Timestamp)).toISOString() : '1970-01-01T00:00:00Z';
+  const { data } = await sb.from('messages').select('*').gt('created_at', since).order('created_at', { ascending: true }).limit(500);
+  if (data && data.length) tcIngest(data, true);
+}
+function tcSubscribe() {
+  tcTeardown();
+  tc.sub = sb.channel('storyos-team-chat')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => tcIngest([p.new], true))
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') { if (tc.reconnect) tcCatchUp(); tc.reconnect = false; }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') tc.reconnect = true;
+    });
+}
+function tcIngest(rows, live) {
+  const added = [];
+  rows.forEach(r => {
+    if (!r || tc.ids.has(r.id)) return;
+    const o = tcRow(r);
+    // our own optimistic copy → swap in the saved message instead of showing it twice
+    const pend = tc.msgs.find(m => m.pending && m['Sender Email'] === o['Sender Email'] && m.Channel === o.Channel && m.Text === o.Text);
+    if (pend) { tc.ids.delete(pend.ID); Object.assign(pend, o, { status: '', pending: false }); tc.ids.add(o.ID); return; }
+    tc.ids.add(o.ID); tc.msgs.push(o); added.push(o);
+  });
+  tc.msgs.sort((a, b) => parseActivityTs(a.Timestamp) - parseActivityTs(b.Timestamp));
+  if (tcViewing(tc.active)) tcMarkRead(tc.active);
+  tcRenderAll();
+  if (live) tcAlert(added);
+}
+function tcOnOpen() {
+  tcRenderAll(true);
+  if (window.innerWidth > 768) { tcMarkRead(tc.active); tcRenderAll(); setTimeout(() => document.getElementById('tc-input')?.focus(), 50); }
+  tcCatchUp();
+}
+
+function tcOpen(ch) {
+  tc.active = ch; tc.convOpen = true;
+  document.getElementById('tc-wrap').classList.add('conv-open');
+  tcMarkRead(ch); tcRenderAll(true);
+  if (window.innerWidth > 768) document.getElementById('tc-input').focus();
+}
+function tcBack() {
+  tc.convOpen = false;
+  document.getElementById('tc-wrap').classList.remove('conv-open');
+  tcRenderList();
+}
+
+// ── rendering ──
+function tcTime(ms) { return new Date(ms).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); }
+function tcDayLabel(ms) {
+  const d = new Date(ms), t = new Date(); const y = new Date(); y.setDate(t.getDate() - 1);
+  if (d.toDateString() === t.toDateString()) return 'Today';
+  if (d.toDateString() === y.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: d.getFullYear() === t.getFullYear() ? undefined : 'numeric' });
+}
+function tcListTime(ms) {
+  if (!ms) return '';
+  const d = new Date(ms), t = new Date();
+  return d.toDateString() === t.toDateString() ? tcTime(ms) : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+function tcFormat(text) {
+  let h = esc(text);
+  h = h.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"])/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  h = h.replace(/(^|\s)@([A-Za-z][\w.]*)/g, '$1<span class="tc-mention">@$2</span>');
+  return h;
+}
+function tcRenderAll(forceBottom) { tcRenderList(); tcRenderConv(forceBottom); tcUpdateBadge(); }
+
+function tcItem(ch, name, av, isCh) {
+  const msgs = tc.msgs.filter(m => m.Channel === ch);
+  const last = msgs[msgs.length - 1];
+  const unread = tcUnread(ch);
+  const active = ch === tc.active && (window.innerWidth > 768 || tc.convOpen);
+  const prev = last ? (last['Sender Email'] === tcMe() ? 'You: ' : (isCh ? (last['Sender Name'] || '').split(' ')[0] + ': ' : '')) + last.Text.replace(/\s+/g, ' ') : (isCh ? 'No messages yet' : 'Start a conversation');
+  return `<button class="tc-item${active ? ' active' : ''}${unread ? ' unread' : ''}" onclick="tcOpen('${esc(ch)}')">
+      <div class="tc-av${isCh ? ' ch' : ''}">${esc(av)}</div>
+      <div class="tc-item-body">
+        <div class="tc-item-top"><span class="tc-item-name">${esc(name)}</span><span class="tc-item-time">${last ? tcListTime(parseActivityTs(last.Timestamp)) : ''}</span></div>
+        <div class="tc-item-top"><span class="tc-item-prev">${esc(prev)}</span>${unread ? `<span class="tc-unread">${unread > 99 ? '99+' : unread}</span>` : ''}</div>
+      </div>
+    </button>`;
+}
+function tcRenderList() {
+  const chEl = document.getElementById('tc-channels'), dmEl = document.getElementById('tc-dms');
+  if (!chEl) return;
+  chEl.innerHTML = TC_CHANNELS.map(c => tcItem(c.id, c.name, '#', true)).join('');
+  const members = tcOthers();
+  const lastTs = id => { const ms = tc.msgs.filter(m => m.Channel === id); return ms.length ? parseActivityTs(ms[ms.length - 1].Timestamp) : 0; };
+  members.sort((a, b) => (lastTs(tcDmId(b.email)) - lastTs(tcDmId(a.email))) || a.name.localeCompare(b.name));
+  dmEl.innerHTML = members.length
+    ? members.map(m => tcItem(tcDmId(m.email), m.name, initialsOf(m.name), false)).join('')
+    : '<div style="font-size:12px;color:var(--text-dim);padding:4px 10px">Team members added under Team Access will appear here.</div>';
+  const ab = document.getElementById('tc-alerts-btn');
+  if (ab) ab.style.display = (tc.auth === 'ok' && 'Notification' in window && Notification.permission === 'default') ? '' : 'none';
+}
+function tcCard(title, body, btn) {
+  return `<div class="tc-setup"><h3>${title}</h3>${body}${btn ? `<div style="margin-top:16px">${btn}</div>` : ''}</div>`;
+}
+const TC_GOOGLE_BTN = label => `<button class="tc-google" onclick="tcSignIn()"><svg viewBox="0 0 48 48" width="18" height="18"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>${label}</button>`;
+function tcRenderConv(forceBottom) {
+  const box = document.getElementById('tc-msgs'); if (!box) return;
+  const info = tcConvInfo(tc.active);
+  setText('tc-conv-title', info.title); setText('tc-conv-sub', info.sub);
+  const av = document.getElementById('tc-conv-av'); av.textContent = info.av; av.className = 'tc-av' + (info.isCh ? ' ch' : '');
+  const input = document.getElementById('tc-input'), send = document.getElementById('tc-send');
+  input.placeholder = info.isCh ? 'Message #' + info.title : 'Message ' + info.title;
+  const blocked = tc.auth !== 'ok' || !tc.ready || tc.missing || tc.notMember;
+  input.disabled = blocked; send.disabled = blocked;
+
+  if (tc.auth === 'checking') { box.innerHTML = '<div class="tc-empty">Connecting…</div>'; return; }
+  if (tc.auth === 'unavailable') { box.innerHTML = tcCard('Chat couldn\'t load', 'Check your internet connection and refresh the page.'); return; }
+  if (tc.auth === 'signin') {
+    box.innerHTML = tcCard('Connect Team Chat', 'One-time step: sign in with your Google account <b>' + esc(tcMe()) + '</b> to turn on chat. Your messages are stored securely and only your team can read them — direct messages only by the two people in them.', TC_GOOGLE_BTN('Sign in with Google'));
+    return;
+  }
+  if (tc.auth === 'mismatch') {
+    box.innerHTML = tcCard('Different Google account', 'Chat is signed in as <b>' + esc(tc.sbEmail) + '</b>, but you\'re using StoryOS as <b>' + esc(tcMe()) + '</b>. Switch so your messages go out under the right name.',
+      `<button class="tc-google" onclick="tcSwitchAccount()">Switch to ${esc(tcMe())}</button>`);
+    return;
+  }
+  if (!tc.ready) { box.innerHTML = '<div class="tc-empty">Loading messages…</div>'; return; }
+  if (tc.missing) {
+    box.innerHTML = currentUser && currentUser.isAdmin
+      ? tcCard('One-time setup', 'The chat database isn\'t set up yet. In Supabase, open <b>SQL Editor</b>, paste the Team Chat setup script and click <b>Run</b>, then refresh StoryOS.')
+      : tcCard('Team Chat isn\'t set up yet', 'Ask your admin to finish the one-time setup — it will start working here automatically.');
+    return;
+  }
+  if (tc.notMember) {
+    box.innerHTML = tcCard('Almost there', 'You\'re not on the chat list yet. Ask your admin to open StoryOS once — that adds everyone from Team Access to chat — then refresh.');
+    return;
+  }
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  const msgs = tc.msgs.filter(m => m.Channel === tc.active);
+  if (!msgs.length) {
+    box.innerHTML = `<div class="tc-empty"><div class="big">👋</div>${info.isCh ? 'No messages in <b>#' + esc(info.title) + '</b> yet — say hello to the team.' : 'This is the start of your conversation with <b>' + esc(info.title) + '</b>.'}</div>`;
+    return;
+  }
+  let html = '', prevDay = '', prev = null;
+  msgs.forEach(m => {
+    const ms = parseActivityTs(m.Timestamp), day = tcDayLabel(ms);
+    if (day !== prevDay) { html += `<div class="tc-day"><span>${esc(day)}</span></div>`; prevDay = day; prev = null; }
+    const me = m['Sender Email'] === tcMe();
+    const first = !prev || prev['Sender Email'] !== m['Sender Email'] || ms - parseActivityTs(prev.Timestamp) > 5 * 60000;
+    const name = me ? 'You' : (m['Sender Name'] || m['Sender Email'].split('@')[0]);
+    const status = m.status === 'sending' ? '<div class="tc-status">Sending…</div>'
+      : m.status === 'failed' ? `<div class="tc-status failed" onclick="tcRetry('${esc(m.ID)}')">Not sent — tap to retry</div>` : '';
+    html += `<div class="tc-row${me ? ' me' : ''}${first ? ' first' : ''}">
+        ${me ? '' : `<div class="tc-av${first ? '' : ' blank'}">${esc(initialsOf(name))}</div>`}
+        <div class="tc-bubble-wrap">
+          ${first ? `<div class="tc-meta">${me ? '' : `<b>${esc(name)}</b>`}${tcTime(ms)}</div>` : ''}
+          <div class="tc-bubble">${tcFormat(m.Text)}</div>${status}
+        </div>
+      </div>`;
+    prev = m;
+  });
+  box.innerHTML = html;
+  if (forceBottom || nearBottom) box.scrollTop = box.scrollHeight;
+}
+
+function tcUpdateBadge() {
+  const chans = TC_CHANNELS.map(c => c.id).concat(tcOthers().map(m => tcDmId(m.email)));
+  const total = chans.reduce((n, ch) => n + tcUnread(ch), 0);
+  const b = document.getElementById('tc-badge');
+  if (b) { b.textContent = total > 99 ? '99+' : total; b.style.display = total ? 'inline' : 'none'; }
+  document.title = (total ? '(' + total + ') ' : '') + tc.baseTitle;
+}
+
+// ── sending ──
+function tcAutosize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
+function tcKey(e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); tcSend(); } }
+function tcSend() {
+  const input = document.getElementById('tc-input');
+  const text = input.value.trim();
+  if (!text || tc.auth !== 'ok' || tc.missing || tc.notMember || !currentUser) return;
+  const msg = { ID: 'tmp-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), Timestamp: 't' + Date.now(), Channel: tc.active,
+                'Sender Email': tcMe(), 'Sender Name': currentUser.name || tcMe(), Text: text.slice(0, 4000), status: 'sending', pending: true };
+  tc.ids.add(msg.ID); tc.msgs.push(msg);
+  input.value = ''; tcAutosize(input);
+  tcMarkRead(tc.active); tcRenderAll(true);
+  tcPost(msg);
+}
+async function tcPost(msg) {
+  msg.status = 'sending'; tcRenderConv();
+  try {
+    const { data, error } = await sb.from('messages').insert({ channel: msg.Channel, sender_name: msg['Sender Name'], body: msg.Text }).select().single();
+    if (error) throw error;
+    if (msg.pending) tcIngest([data], false); // swaps the optimistic copy for the saved one (unless Realtime already did)
+  } catch (e) { msg.status = 'failed'; tcRenderConv(); }
+}
+function tcRetry(id) { const m = tc.msgs.find(x => x.ID === id); if (m) tcPost(m); }
+
+function tcEnableAlerts() {
+  if (!('Notification' in window)) return;
+  Notification.requestPermission().then(() => tcRenderList());
+}
+function tcAlert(newMsgs) {
+  const fromOthers = newMsgs.filter(m => m['Sender Email'] !== tcMe() && !tcViewing(m.Channel));
+  if (!fromOthers.length || !('Notification' in window) || Notification.permission !== 'granted') return;
+  const m = fromOthers[fromOthers.length - 1];
+  const info = tcConvInfo(m.Channel);
+  try {
+    const n = new Notification((m['Sender Name'] || 'New message') + (info.isCh ? ' in #' + info.title : ''),
+      { body: m.Text.slice(0, 140) + (fromOthers.length > 1 ? `  (+${fromOthers.length - 1} more)` : ''), tag: 'storyos-chat' });
+    n.onclick = () => { window.focus(); showTab('chat', document.querySelector('.nav-btn[data-tab="chat"]')); tcOpen(m.Channel); n.close(); };
+  } catch (e) {}
 }
 
 // ── FOUNDER CHAT ──────────────────────────────
