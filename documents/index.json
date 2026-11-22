@@ -5,7 +5,8 @@
     "Policies",
     "Pricing & Rate Cards",
     "Brand & Templates",
-    "Website"
+    "Website",
+    "StoryOS"
   ],
   "documents": [
     {
@@ -79,6 +80,14 @@
       "description": "How to take a Couple Magazine order from customer details to a print-ready magazine using the automation: what to collect, the photo checklist, submitting, the review email and the Canva checklist.",
       "updated": "22 Nov 2026",
       "pages": 3
+    },
+    {
+      "file": "storyos/StoryOS-Guide.pdf",
+      "title": "StoryOS Guide",
+      "category": "StoryOS",
+      "description": "What every StoryOS module does, where the data lives (Supabase, read-only sheet copy), the AI assistant, and how to use Demo Mode to show StoryOS without real data.",
+      "updated": "22 Nov 2026",
+      "pages": 2
     }
   ]
 }
