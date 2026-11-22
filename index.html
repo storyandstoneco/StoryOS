@@ -1686,7 +1686,7 @@
     </div>
     <div class="form-group" style="border-top:1px solid var(--border);padding-top:16px">
       <label class="form-label"><input type="checkbox" id="set-demo-mode" onchange="setDemoMode(this.checked)"> Demo Mode</label>
-      <div style="font-size:11px;color:var(--text-mid);margin-top:6px;line-height:1.6">Shows sample Orders &amp; Revenue data instead of your real business data — safe to use when demoing the platform to others. Every other module stays on your real data.</div>
+      <div style="font-size:11px;color:var(--text-mid);margin-top:6px;line-height:1.6">Shows a complete sample business in every module (orders, revenue, social, B2B, tasks, team, activity and team chat) instead of your real data, and the AI assistant answers from it. Nothing you do in Demo Mode is saved to your real data. Shortcut: open StoryOS with <b>?demo=1</b> at the end of the link (<b>?demo=0</b> to switch off).</div>
     </div>
     <div class="form-group" style="border-top:1px solid var(--border);padding-top:16px">
       <label class="form-label">Signed in as</label>
@@ -1823,8 +1823,126 @@ function updateDemoBadge() {
 function setDemoMode(on) {
   demoMode = !!on;
   try { localStorage.setItem('sos_demo_mode', demoMode ? '1' : '0'); } catch {}
-  updateDemoBadge();
-  syncAll();
+  location.reload();   // reload so every module (and team chat) switches cleanly
+}
+
+// ── DEMO DATA (for showing StoryOS to others) ──
+// In Demo Mode EVERY module shows the sample business below (orders, revenue, social, B2B,
+// tasks, team, activity, team chat), the AI assistant answers from it, and nothing is saved
+// to the real database — changes stay in this browser tab only. Open StoryOS with ?demo=1 to
+// switch it on (?demo=0 to switch off), or use Settings → Demo Mode.
+(function () {
+  const q = new URLSearchParams(location.search).get('demo');
+  if (q === '1' || q === '0') {
+    try { localStorage.setItem('sos_demo_mode', q); } catch {}
+    demoMode = q === '1';
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
+})();
+let demoStore = null;
+const DEMO_KEYS = ['orders', 'pnl', 'social', 'weddingPlanners', 'corporates', 'activityLog', 'team', 'tasks'];
+const DEMO_SHEET_KEY = { 'Orders': 'orders', 'Demo Orders': 'orders', 'P&L': 'pnl', 'Demo P&L': 'pnl', 'Social Media Calendar': 'social',
+  'Wedding Planners': 'weddingPlanners', 'Corporates': 'corporates', 'Activity Log': 'activityLog', 'Team': 'team', 'Tasks': 'tasks' };
+const DEMO_TEAM_PEOPLE = [
+  { email: 'ananya@demo.storyos', name: 'Ananya Kapoor', role: 'Design Lead', resp: 'Magazine and newspaper designs, Canva templates, final review', status: 'available' },
+  { email: 'kabir@demo.storyos',  name: 'Kabir Mehta',   role: 'Operations',  resp: 'Orders, printing, dispatch and courier follow-ups', status: 'busy' },
+  { email: 'meher@demo.storyos',  name: 'Meher Sethi',   role: 'Social & Growth', resp: 'Instagram calendar, reels, B2B partnerships', status: 'away' },
+];
+function demoBuild() {
+  const DAY = 864e5, now = Date.now();
+  const dmy = (d) => { const x = new Date(now - d * DAY); return String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0') + '/' + x.getFullYear(); };
+  const iso = (d) => new Date(now - d * DAY).toISOString().slice(0, 10);
+  const P = [
+    ['Birthday Magazine — For Her', 'Birthday', '16 pages', 1599], ['Couple Magazine', 'Anniversary', '20 pages', 1799],
+    ['Anniversary Frame', 'Anniversary', 'A4', 899], ['Birthday Newspaper', 'Birthday', '4 pages', 699],
+    ['Wedding Magazine', 'Wedding', '28 pages', 2199], ['Combo of 3 Frames', 'Birthday', 'A4 x3', 1999],
+    ['Friendship Magazine', 'Friendship', '12 pages', 1399], ['Birthday Magazine — For Him', 'Birthday', '12 pages', 1399],
+    ['Save the Date Newspaper', 'Wedding', '4 pages', 1199], ['Netflix-Style Frame', 'Anniversary', 'A4', 899],
+  ];
+  const names = ['Aditi Sharma', 'Rohan Verma', 'Ishita Bansal', 'Karan Malhotra', 'Neha Iyer', 'Arjun Nair', 'Sana Qureshi', 'Dev Khanna',
+    'Pooja Reddy', 'Vikram Joshi', 'Tanya Arora', 'Nikhil Gupta', 'Riya Chawla', 'Aman Saxena', 'Mira Pillai', 'Siddharth Rao',
+    'Kritika Jain', 'Yash Agarwal', 'Zoya Khan', 'Rahul Bhatia', 'Simran Kaur', 'Aarav Desai'];
+  const cities = ['Mumbai', 'Delhi', 'Bengaluru', 'Pune', 'Gurugram', 'Hyderabad', 'Jaipur', 'Chennai', 'Kolkata', 'Ahmedabad'];
+  const src = ['Instagram', 'WhatsApp', 'Website', 'Referral'];
+  const orders = names.map((n, i) => {
+    const p = P[(i * 3) % P.length], age = Math.round(i * 7.4 + (i % 3)), total = p[3];
+    const delivered = age > 16, inprog = !delivered && age > 3;
+    const pay = delivered ? 'Paid' : (i % 4 === 0 ? 'Unpaid' : i % 3 === 0 ? 'Partial' : 'Paid');
+    const adv = pay === 'Paid' ? total : pay === 'Partial' ? Math.round(total / 2) : 0;
+    const status = i === 5 ? 'Delayed' : i === 13 ? 'Cancelled' : delivered ? 'Delivered' : inprog ? 'In Progress' : 'Pending';
+    return { 'Order ID': 'SS' + String(1042 - i), 'Order Date': dmy(age), 'Customer Name': n, 'Phone': '98' + String(10000000 + i * 734521).slice(0, 8),
+      'Insta ID': '@' + n.toLowerCase().replace(/[^a-z]/g, '').slice(0, 10), 'Address': cities[i % cities.length], 'Source': src[i % 4],
+      'Product Type': p[0], 'Occasion': p[1], 'Variant': '', 'Qty': '1', 'Pages/Size': p[2], 'Total Amount': String(total),
+      'Advance Paid': String(adv), 'Balance': String(total - adv), 'Payment Status': pay,
+      'Content Received': age > 1 ? 'Yes' : 'No', 'Draft Sent': age > 4 ? 'Yes' : 'No', 'Final Approval': age > 7 ? 'Yes' : 'No',
+      'Dispatch Date': delivered ? dmy(age - 9) : '', 'Tracking No.': delivered ? 'DTDC' + (77120 + i) : '', 'Order Status': status,
+      'Post Permission': i % 2 ? 'Yes' : 'No', 'Notes': i === 5 ? 'Waiting for 10 more photos from customer' : i === 2 ? 'Gift wrap + handwritten note' : '' };
+  }).reverse();   // oldest first, like rows appended over time
+  const pnl = [['Printing', 18400], ['Packaging', 4200], ['Shipping', 6900], ['Canva & software', 1500], ['Instagram ads', 9000], ['Stationery', 1100], ['Misc', 800]]
+    .map(([c, a]) => ({ Category: c, Amount: String(a) }));
+  const ideas = [['Reel', 'Unboxing a 28-page couple magazine', 'Posted'], ['Carousel', '5 gift ideas for your sister’s birthday', 'Posted'],
+    ['Reel', 'Behind the scenes: from photos to magazine', 'Scheduled'], ['Story', 'Customer reaction — anniversary frame', 'Scheduled'],
+    ['Post', 'Wedding season: save-the-date newspapers', 'Draft'], ['Reel', 'How we pick the cover photo', 'Draft'], ['Carousel', 'Before / after: raw photos vs magazine page', 'Idea']];
+  const social = ideas.map(([t, idea, st], i) => { const d = new Date(now + (i - 3) * 2 * DAY);
+    return { Date: iso(-(i - 3) * 2), Day: d.toLocaleDateString('en-IN', { weekday: 'long' }), Platform: 'Instagram', 'Post Type': t, 'Content Type': t, 'Content Idea': idea, Caption: '', Status: st, Notes: '' }; });
+  const wp = [['Shaadi Squad Planners', 'Converted'], ['Velvet Vows Weddings', 'Active'], ['The Wedding Story Co.', 'Follow Up'], ['Marigold Events', 'Mail Sent'],
+    ['Pheras & Petals', 'Mail Sent'], ['Big Fat Day Planners', 'Cold'], ['Mandap Diaries', 'Follow Up'], ['Ever After Events', 'Mail Sent']]
+    .map(([n, s], i) => ({ Name: n, Email: 'hello@' + n.toLowerCase().replace(/[^a-z]/g, '') + '.example', Phone: '', Website: n.toLowerCase().replace(/[^a-z]/g, '') + '.example',
+      Instagram: '@' + n.toLowerCase().replace(/[^a-z]/g, ''), Status: s, 'Last Contacted': iso(3 + i), 'Follow-up Due': iso(-2 - i), 'Draft ID': '', 'Thread ID': '', Notes: i === 1 ? 'Wants 40 save-the-date newspapers for a December wedding' : '' }));
+  const corp = [['Northwind Studios', 'Bengaluru', 'Tech', 'Active'], ['Saffron Foods', 'Mumbai', 'FMCG', 'Mail Sent'], ['Bluepeak Consulting', 'Gurugram', 'Consulting', 'Cold']]
+    .map(([n, c, ind, s], i) => ({ 'S.No': String(i + 1), 'Company Name': n, City: c, 'Industry / Vertical': ind, 'Est. Size': '200–500', Website: '', 'LinkedIn (Company Page)': '', Instagram: '',
+      'Exact Buyer Title to Target': 'Head of Employee Experience', 'Why This Title (Not HR Head)': '', 'LinkedIn Sales Nav Search Query': '', 'Alt Search (Apollo / Lusha)': '',
+      "Why They'd Buy": 'Personalised work-anniversary gifts', Status: s, 'Follow-up Due': iso(-3 - i), Notes: '' }));
+  const team = DEMO_TEAM_PEOPLE.map(p => ({ Name: p.name, Role: p.role, Responsibilities: p.resp }));
+  const tasks = [['Send draft of #SS1038 to Neha', 'Today', 'No'], ['Order 50 magazine boxes', 'This Week', 'No'], ['Reply to Velvet Vows about bulk pricing', 'Today', 'No'],
+    ['Shoot unboxing reel', 'This Week', 'No'], ['Update price list for wedding season', 'Later', 'No'], ['Dispatch #SS1033 and #SS1034', 'Today', 'Yes']]
+    .map(([t, c, d], i) => ({ ID: 'demo-t' + i, Text: t, Category: c, Done: d }));
+  const ts = (h) => 't' + (now - h * 36e5);
+  const activityLog = [[30, 'Kabir Mehta', 'Orders', 'Kabir Mehta marked order #SS1031 as Delivered'], [20, 'Ananya Kapoor', 'Orders', 'Ananya Kapoor sent the draft for order #SS1036'],
+    [9, 'Meher Sethi', 'B2B', 'Meher Sethi approved outreach to Marigold Events'], [5, 'Kabir Mehta', 'Orders', 'New order #SS1042 from Aditi Sharma (Instagram)'],
+    [2, 'Ananya Kapoor', 'Tasks', 'Ananya Kapoor completed “Dispatch #SS1033 and #SS1034”']]
+    .map(([h, a, c, m]) => ({ Timestamp: ts(h), Actor: a, Category: c, Message: m }));
+  return { orders, pnl, social, weddingPlanners: wp, corporates: corp, team, tasks, activityLog };
+}
+function demoMessages() {
+  const now = Date.now(), me = tcMe(), myName = (currentUser && currentUser.name) || 'You';
+  const [a, k, m] = DEMO_TEAM_PEOPLE;
+  const list = [
+    ['general', m, 300, 'Good morning team! Reel for the couple magazine goes live at 7 pm today 🎬'],
+    ['general', a, 290, 'Love it. I’ve put the final cover in the Design channel'],
+    ['orders', k, 240, 'SS1037 and SS1038 are printed, dispatching after lunch'],
+    ['orders', { email: me, name: myName }, 230, 'Great, thanks! Can you also check the courier for SS1031?'],
+    ['orders', k, 220, 'Delivered this morning, customer already shared a story 💛'],
+    ['design', a, 120, 'The automation built Neha’s 16-page magazine in 11 minutes. Reviewing now'],
+    ['design', a, 60, 'Swapped one photo on page 9, everything else looks perfect. Sending the draft'],
+    ['general', k, 25, 'Reminder: we need 50 more magazine boxes by Friday'],
+  ];
+  if (me) list.push(['dm:' + [me, a.email].sort().join('|'), a, 15, 'Quick one: are we okay to use the gold foil cover for the wedding order?']);
+  return list.map(([ch, p, min, text], i) => ({ ID: 'demo-m' + i, Timestamp: 't' + (now - min * 60000), Channel: ch, 'Sender Email': p.email, 'Sender Name': p.name, Text: text }));
+}
+function demoGet(key) {
+  if (!demoStore) demoStore = demoBuild();
+  return JSON.parse(JSON.stringify(demoStore[key] || []));
+}
+// Writes while in Demo Mode: applied to the in-tab sample data only — never sent anywhere.
+function demoWrite(body) {
+  const key = DEMO_SHEET_KEY[body.sheet];
+  if (!key) return { ok: true };
+  if (!demoStore) demoStore = demoBuild();
+  const rows = demoStore[key];
+  if (body.action === 'addRow') rows.push(Object.assign({}, body.fields));
+  else if (body.action === 'updateRow') { const r = rows.find(x => String(x[body.matchColumn]) === String(body.matchValue)); if (r) Object.assign(r, body.fields); }
+  else if (body.action === 'deleteRow') { const i = rows.findIndex(x => String(x[body.matchColumn]) === String(body.matchValue)); if (i >= 0) rows.splice(i, 1); }
+  return { ok: true };
+}
+function demoStartChat() {
+  tc.auth = 'ok'; tc.ready = true; tc.missing = false; tc.notMember = false; tc.presenceReady = true; tc.myStatus = 'available';
+  tc.people = tc.people || {};
+  DEMO_TEAM_PEOPLE.forEach(p => { tc.people[p.email] = { status: p.status, online: true, active: p.status !== 'away', lastSeen: Date.now() }; });
+  tc.msgs = []; tc.ids = new Set();
+  demoMessages().forEach(m => { tc.ids.add(m.ID); tc.msgs.push(m); });
+  tcRenderAll(true);
+  if (typeof tcRenderPresence === 'function') tcRenderPresence();
 }
 
 // ── TEAM ACCESS / SIGN-IN ──────────────────────
@@ -2372,6 +2490,7 @@ function renderMigrationPanel() {
 }
 
 async function postToSheet(body) {
+  if (demoMode) return demoWrite(body);
   const sbt = sbTableFor(body.sheet);
   if (sbt) return sbWrite(sbt, body);
   if (SB_MODE && body.sheet === 'Team Access') return sbWriteMembers(body);
@@ -2393,6 +2512,7 @@ async function postToSheet(body) {
 }
 
 function sendInviteEmail(name, email) {
+  if (demoMode) return;
   // Fire-and-forget — a failed invite email shouldn't block the Team Access save.
   // Content-Type must be application/json here (unlike the Apps Script calls) —
   // n8n's webhook node only parses the body into $json.body when it's told the
@@ -2438,6 +2558,7 @@ async function syncAll() {
 }
 
 async function fetchTab(tabName, storeKey) {
+  if (demoMode && DEMO_KEYS.includes(storeKey)) { store[storeKey] = demoGet(storeKey); return; }
   const sbt = sbTableFor(tabName);
   if (sbt) {
     try { store[storeKey] = (await sbSelectAll(sbt)).map(sbClean); }
@@ -2532,6 +2653,7 @@ function logActivity(category, message) {
     updateNotifBadge();
   }
 
+  if (demoMode) { demoWrite({ action: 'addRow', sheet: 'Activity Log', fields: entry }); return; }
   if (sbTableFor('Activity Log')) { sb.from('activity_log').insert(entry).then(() => {}, () => {}); return; }
   if (!SYNC_URL) return;
   fetch(SYNC_URL, {
@@ -2622,6 +2744,8 @@ const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_KEY, {
 function tcMe() { return ((currentUser && currentUser.email) || '').trim().toLowerCase(); }
 function tcDmId(email) { return 'dm:' + [tcMe(), email.trim().toLowerCase()].sort().join('|'); }
 function tcMembers() {
+  if (demoMode) return DEMO_TEAM_PEOPLE.map(p => ({ email: p.email, name: p.name, admin: false }))
+    .concat(currentUser ? [{ email: tcMe(), name: currentUser.name || tcMe(), admin: true }] : []).sort((a, b) => a.name.localeCompare(b.name));
   const c = teamAccessCache; if (!c || c.emailCol < 0) return [];
   const seen = new Set();
   return c.rows.map(r => ({ email: (r[c.emailCol] || '').trim().toLowerCase(), name: (r[c.nameCol] || '').trim(), admin: /^y/i.test(r[c.adminCol] || '') }))
@@ -2677,6 +2801,7 @@ window.addEventListener('resize', () => { if (tc.started) tcRenderList(); });
 
 async function tcOnSession(session) {
   if (!currentUser) return;
+  if (demoMode) { if (tc.auth !== 'ok') demoStartChat(); return; }
   const email = ((session && session.user && session.user.email) || '').toLowerCase();
   tc.token = (session && session.access_token) || '';
   if (!session) { tcTeardown(); tcStopPresence(false); tc.auth = 'signin'; tcRenderAll(); return; }
@@ -2737,6 +2862,7 @@ async function tcLoad() {
   tc.ready = true; tcRenderAll(true);
 }
 async function tcCatchUp() {
+  if (demoMode) return;
   if (!sb || tc.auth !== 'ok' || !tc.ready) return;
   const real = tc.msgs.filter(m => !m.pending);
   const since = real.length ? new Date(parseActivityTs(real[real.length - 1].Timestamp)).toISOString() : '1970-01-01T00:00:00Z';
@@ -2942,6 +3068,7 @@ function tcSend() {
   tcPost(msg);
 }
 async function tcPost(msg) {
+  if (demoMode) { msg.status = ''; msg.pending = false; tcRenderConv(); return; }
   msg.status = 'sending'; tcRenderConv();
   try {
     const { data, error } = await sb.from('messages').insert({ channel: msg.Channel, sender_name: msg['Sender Name'], body: msg.Text }).select().single();
@@ -3036,6 +3163,7 @@ function tcSetPerson(r) {
   if (r.email === tcMe() && r.status) tc.myStatus = r.status;
 }
 async function tcLoadPeople() {
+  if (demoMode) return;
   if (!sb || tc.auth !== 'ok') return;
   const { data, error } = await sb.from('members').select('email, status, online, active, last_seen');
   if (error) return; // presence columns not set up yet — status just stays hidden
@@ -3071,6 +3199,7 @@ function tcDot(key) { return tc.presenceReady ? `<span class="tc-dot s-${key}"><
 
 function tcIsActive() { return !document.hidden && Date.now() - tc.lastInput < TC_IDLE_MS; }
 async function tcHeartbeat() {
+  if (demoMode) return;
   if (!sb || tc.auth !== 'ok' || !tc.presenceReady) return;
   tc.wasIdle = !tcIsActive();
   const { error } = await sb.rpc('heartbeat', { p_active: !tc.wasIdle, p_online: true });
@@ -3114,6 +3243,7 @@ document.addEventListener('visibilitychange', () => { if (tc.auth === 'ok') tcHe
 
 async function tcSetMyStatus(key) {
   tcCloseStatusMenu();
+  if (demoMode) { tc.myStatus = key; tcRenderPresence(); tcRenderAll(); return; }
   const prev = tc.myStatus;
   tc.myStatus = key; tcRenderPresence();
   const { error } = await sb.rpc('set_my_status', { p_status: key });
@@ -5104,7 +5234,9 @@ const MODULE_LABELS = {
 async function renderTeamAccessList() {
   const el = document.getElementById('team-access-list');
   el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;text-align:center;padding:20px">Loading…</div>';
-  const parsed = await fetchTeamAccessRows();
+  const parsed = demoMode ? { emailCol: 1, nameCol: 0, adminCol: 2, modulesCol: 3,
+      rows: [[(currentUser && currentUser.name) || 'Owner', 'owner@demo.storyos', 'Yes', 'all']].concat(DEMO_TEAM_PEOPLE.map((p, i) => [p.name, p.email, 'No', ['home,orders,tasks,documents', 'home,orders,revenue,tasks', 'home,social,b2b,tasks'][i]])) }
+    : await fetchTeamAccessRows();
   if (!parsed || !parsed.rows.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-title">No one added yet</div><div class="empty-desc">Click + Add Person to give a team member access.</div></div>';
     return;
