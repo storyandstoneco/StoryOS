@@ -3232,18 +3232,38 @@ function userCan(mod) { return !currentUser || currentUser.isAdmin || currentUse
 // (with the signed-in person's permissions), so n8n never writes order data directly.
 async function executeOrderAction(op, payload) {
   if (op !== 'update' || !userCan('orders')) return;
-  const id = String(payload.orderId || payload.id || '').trim();
-  const row = (store.orders || []).find(o => (o['Order ID'] || '').trim().toLowerCase() === id.toLowerCase());
-  if (!row) { appendChatBubble('I couldn\'t find order ' + id + ' to update.', 'bot'); return; }
-  const fields = {};
-  if (payload.status) fields['Order Status'] = String(payload.status);
-  if (payload.balance !== undefined && payload.balance !== '') fields['Balance'] = String(payload.balance).replace(/[^\d.\-]/g, '');
-  if (!Object.keys(fields).length) return;
-  const result = await postToSheet({ action: 'updateRow', sheet: ordersSheetName(), matchColumn: 'Order ID', matchValue: row['Order ID'], fields });
-  if (!result.ok) return;
-  Object.assign(row, fields);
+  const all = store.orders || [], key = v => String(v || '').trim().toLowerCase();
+  // One order (orderId), a list (orderIds), or every order (allOrders) minus excludeOrderIds
+  let ids = payload.allOrders ? all.map(o => o['Order ID'])
+    : [].concat(payload.orderIds || [], payload.orderId || payload.id || []).filter(Boolean);
+  const skip = new Set([].concat(payload.excludeOrderIds || []).map(key));
+  ids = [...new Set(ids.map(key))].filter(id => id && !skip.has(id));
+  const rows = ids.map(id => all.find(o => key(o['Order ID']) === id)).filter(Boolean);
+  const missing = ids.length - rows.length;
+  if (!rows.length) { appendChatBubble('I couldn\'t find those orders to update.', 'bot'); return; }
+  const base = {};
+  if (payload.status) base['Order Status'] = String(payload.status);
+  if (payload.paymentStatus) base['Payment Status'] = String(payload.paymentStatus);
+  if (payload.balance !== undefined && payload.balance !== null && payload.balance !== '') base['Balance'] = String(payload.balance).replace(/[^\d.\-]/g, '');
+  if (!Object.keys(base).length) return;
+  const describe = Object.entries(base).map(([k, v]) => k + ' → ' + v).join(', ');
+  if (rows.length > 1 && !confirm(`Update ${rows.length} orders?\n\n${describe}\n\n${rows.slice(0, 12).map(r => '• ' + r['Order ID'] + ' — ' + (r['Customer Name'] || '')).join('\n')}${rows.length > 12 ? `\n…and ${rows.length - 12} more` : ''}`)) {
+    appendChatBubble('Okay — I didn\'t change anything.', 'bot'); return;
+  }
+  let done = 0, failed = 0;
+  for (const row of rows) {
+    const fields = { ...base };
+    // Marking an order Paid also clears what's owed, so Revenue "collected" and "outstanding" stay right
+    if (/^paid$/i.test(fields['Payment Status'] || '')) { fields['Balance'] = '0'; if (row['Total Amount']) fields['Advance Paid'] = row['Total Amount']; }
+    const changed = Object.keys(fields).filter(k => String(row[k] || '') !== String(fields[k]));
+    if (!changed.length) { done++; continue; }
+    const result = await postToSheet({ action: 'updateRow', sheet: ordersSheetName(), matchColumn: 'Order ID', matchValue: row['Order ID'], fields });
+    if (!result.ok) { failed++; continue; }
+    Object.assign(row, fields); done++;
+  }
   renderAll();
-  logActivity('Orders', actorName() + ' (via chat) updated ' + row['Order ID'] + ': ' + Object.entries(fields).map(([k, v]) => k + ' → ' + v).join(', '));
+  logActivity('Orders', actorName() + ` (via chat) updated ${done} order${done === 1 ? '' : 's'}: ${describe}`);
+  appendChatBubble(`Done — updated ${done} order${done === 1 ? '' : 's'}.` + (failed ? ` ${failed} couldn't be saved.` : '') + (missing ? ` ${missing} order ID${missing === 1 ? ' wasn\'t' : 's weren\'t'} found.` : ''), 'bot');
 }
 // New wedding-planner lead from the chat assistant — Status "New Lead" so the outreach automation picks it up.
 async function executeB2BAction(op, payload) {
@@ -3392,7 +3412,7 @@ async function sendChatMessage() {
     });
     const data = await res.json();
     loading.remove();
-    appendChatBubble(data.answer || 'Sorry, I could not find an answer.', 'bot');
+    appendChatBubble(data.answer || 'Sorry — I couldn\'t work that out. Try asking again, or split it into smaller requests.', 'bot');
     if (data.chart && data.chart.type && data.chart.type !== 'none') {
       appendChatChart(data.chart);
     }
