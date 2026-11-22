@@ -4,7 +4,8 @@
     "Customer FAQs",
     "Policies",
     "Pricing & Rate Cards",
-    "Brand & Templates"
+    "Brand & Templates",
+    "Website"
   ],
   "documents": [
     {
@@ -21,7 +22,7 @@
       "file": "pricing/Product-Catalogue-and-Price-List.pdf",
       "description": "Every product with its photo, first-order and website price, size options with photo counts, description, specs, extras — plus the page list of every magazine.",
       "updated": "22 Nov 2026",
-      "pages": 12
+      "pages": 14
     },
     {
       "title": "Customer Photo & Details Guide",
@@ -29,21 +30,53 @@
       "file": "faqs/Customer-Photo-Guide.pdf",
       "description": "How many photos each product and size needs, what makes a good photo, and the exact questions to ask for every product.",
       "updated": "22 Nov 2026",
-      "pages": 10
+      "pages": 11
     },
     {
       "title": "Shipping, Delivery & Order Policy",
       "category": "Policies",
       "file": "policies/Shipping-Delivery-and-Order-Policy.pdf",
-      "description": "Shipping included, 10–12 day delivery, digital draft approval, free minor changes, template-based design, extra copies and the first-order offer.",
+      "description": "Payment (advance only), shipping, 10–12 day delivery, draft approval, no cancellations/returns/refunds, damaged-product replacement (unboxing video), and what the team does for damage claims.",
       "updated": "22 Nov 2026",
-      "pages": 1
+      "pages": 2
     },
     {
       "title": "Brand Guidelines",
       "category": "Brand & Templates",
       "file": "brand/Brand-Guidelines.pdf",
       "description": "Logo usage, brand colours with hex codes, fonts (Playfair Display + Jost), buttons and layout, photography rules, and our voice and tone.",
+      "updated": "22 Nov 2026",
+      "pages": 3
+    },
+    {
+      "file": "policies/Privacy-Policy.pdf",
+      "title": "Privacy Policy",
+      "category": "Policies",
+      "description": "The website privacy policy: what we collect (contact, delivery, photos, story answers), how it is used and shared (Canva, AI writing, printer, courier, payments, Supabase), and how customers ask for deletion.",
+      "updated": "22 Nov 2026",
+      "pages": 2
+    },
+    {
+      "file": "policies/Terms-and-Conditions.pdf",
+      "title": "Terms & Conditions",
+      "category": "Policies",
+      "description": "The website terms: orders, advance payment, first-order offer, draft approval, delivery, no cancellations or refunds, photo rights, liability and jurisdiction (Gurugram).",
+      "updated": "22 Nov 2026",
+      "pages": 2
+    },
+    {
+      "file": "website/Website-Guide.pdf",
+      "title": "Website Guide",
+      "category": "Website",
+      "description": "Everything on the Story & Stone website: pages, products, how ordering and the page picker work, the first-order offer, contact details, policies shown, and what is still to do before going live.",
+      "updated": "22 Nov 2026",
+      "pages": 3
+    },
+    {
+      "file": "sops/SOP-Couple-Magazine.pdf",
+      "title": "Couple Magazine — SOP",
+      "category": "SOPs",
+      "description": "How to take a Couple Magazine order from customer details to a print-ready magazine using the automation: what to collect, the photo checklist, submitting, the review email and the Canva checklist.",
       "updated": "22 Nov 2026",
       "pages": 3
     }
