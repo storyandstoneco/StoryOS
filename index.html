@@ -1920,6 +1920,8 @@ const DEMO_TEAM_PEOPLE = [
   { email: 'ananya@demo.storyos', name: 'Ananya Kapoor', role: 'Design Lead', resp: 'Magazine and newspaper designs, Canva templates, final review', status: 'available' },
   { email: 'kabir@demo.storyos',  name: 'Kabir Mehta',   role: 'Operations',  resp: 'Orders, printing, dispatch and courier follow-ups', status: 'busy' },
   { email: 'meher@demo.storyos',  name: 'Meher Sethi',   role: 'Social & Growth', resp: 'Instagram calendar, reels, B2B partnerships', status: 'away' },
+  { email: 'rohit@demo.storyos',  name: 'Rohit Bansal',  role: 'Customer Support', resp: 'WhatsApp and email replies, order confirmations, collecting photos', status: 'available' },
+  { email: 'tara@demo.storyos',   name: 'Tara Menon',    role: 'Finance & Admin', resp: 'Payments, invoices, P&L and vendor bills', status: 'busy' },
 ];
 function demoBuild() {
   const DAY = 864e5, now = Date.now();
@@ -1937,22 +1939,27 @@ function demoBuild() {
     'Kritika Jain', 'Yash Agarwal', 'Zoya Khan', 'Rahul Bhatia', 'Simran Kaur', 'Aarav Desai'];
   const cities = ['Mumbai', 'Delhi', 'Bengaluru', 'Pune', 'Gurugram', 'Hyderabad', 'Jaipur', 'Chennai', 'Kolkata', 'Ahmedabad'];
   const src = ['Instagram', 'WhatsApp', 'Website', 'Referral'];
-  const orders = Array.from({ length: 48 }, (_, i) => {
+  // ~420 orders over 5 months, growing month on month (about 3 a day now), like a busy small D2C brand
+  const N = 420;
+  const orders = Array.from({ length: N }, (_, i) => {
     const n = names[i % names.length];
-    const p = P[(i * 3 + Math.floor(i / 10)) % P.length], age = Math.round(Math.pow(i / 47, 1.2) * 150 + (i % 3)), total = p[3];
+    const bulk = i === 57 || i === 233;                     // two bulk wedding orders from planners
+    const p = bulk ? P[8] : P[(i * 3 + Math.floor(i / 10)) % P.length];
+    const age = Math.round(Math.pow(i / (N - 1), 1.3) * 150 + (i % 3));
+    const qty = bulk ? 40 : (i % 9 === 4 ? 2 : 1), total = p[3] * qty;
     const delivered = age > 16, inprog = !delivered && age > 3;
     const pay = delivered ? 'Paid' : (i % 4 === 0 ? 'Unpaid' : i % 3 === 0 ? 'Partial' : 'Paid');
     const adv = pay === 'Paid' ? total : pay === 'Partial' ? Math.round(total / 2) : 0;
-    const status = i === 5 ? 'Delayed' : i === 13 ? 'Cancelled' : delivered ? 'Delivered' : inprog ? 'In Progress' : 'Pending';
+    const status = i === 5 ? 'Delayed' : (i === 13 || i % 47 === 30) ? 'Cancelled' : delivered ? 'Delivered' : inprog ? 'In Progress' : 'Pending';
     return { 'Order ID': 'SS' + String(1042 - i), 'Order Date': dmy(age), 'Customer Name': n, 'Phone': '98' + String(10000000 + i * 734521).slice(0, 8),
-      'Insta ID': '@' + n.toLowerCase().replace(/[^a-z]/g, '').slice(0, 10), 'Address': cities[i % cities.length], 'Source': src[i % 4],
-      'Product Type': p[0], 'Occasion': p[1], 'Variant': '', 'Qty': '1', 'Pages/Size': p[2], 'Total Amount': String(total),
+      'Insta ID': '@' + n.toLowerCase().replace(/[^a-z]/g, '').slice(0, 10), 'Address': cities[i % cities.length], 'Source': bulk ? 'Referral' : src[i % 4],
+      'Product Type': p[0], 'Occasion': p[1], 'Variant': '', 'Qty': String(qty), 'Pages/Size': p[2], 'Total Amount': String(total),
       'Advance Paid': String(adv), 'Balance': String(total - adv), 'Payment Status': pay,
       'Content Received': age > 1 ? 'Yes' : 'No', 'Draft Sent': age > 4 ? 'Yes' : 'No', 'Final Approval': age > 7 ? 'Yes' : 'No',
       'Dispatch Date': delivered ? dmy(age - 9) : '', 'Tracking No.': delivered ? 'DTDC' + (77120 + i) : '', 'Order Status': status,
-      'Post Permission': i % 2 ? 'Yes' : 'No', 'Notes': i === 5 ? 'Waiting for 10 more photos from customer' : i === 2 ? 'Gift wrap + handwritten note' : '' };
+      'Post Permission': i % 2 ? 'Yes' : 'No', 'Notes': i === 5 ? 'Waiting for 10 more photos from customer' : i === 2 ? 'Gift wrap + handwritten note' : bulk ? 'Bulk order via wedding planner (40 copies)' : '' };
   }).reverse();   // oldest first, like rows appended over time
-  const pnl = [['Printing', 18400], ['Packaging', 4200], ['Shipping', 6900], ['Canva & software', 1500], ['Instagram ads', 9000], ['Stationery', 1100], ['Misc', 800]]
+  const pnl = [['Printing', 172000], ['Packaging', 38500], ['Shipping', 61000], ['Canva & software', 7500], ['Instagram ads', 84000], ['Stationery', 9200], ['Misc', 6800]]
     .map(([c, a]) => ({ Category: c, Amount: String(a) }));
   const ideas = [['Reel', 'Unboxing a 28-page couple magazine', 'Posted'], ['Carousel', '5 gift ideas for your sister’s birthday', 'Posted'],
     ['Reel', 'Behind the scenes: from photos to magazine', 'Scheduled'], ['Story', 'Customer reaction — anniversary frame', 'Scheduled'],
@@ -1968,8 +1975,11 @@ function demoBuild() {
       'Exact Buyer Title to Target': 'Head of Employee Experience', 'Why This Title (Not HR Head)': '', 'LinkedIn Sales Nav Search Query': '', 'Alt Search (Apollo / Lusha)': '',
       "Why They'd Buy": 'Personalised work-anniversary gifts', Status: s, 'Follow-up Due': iso(-3 - i), Notes: '' }));
   const team = DEMO_TEAM_PEOPLE.map(p => ({ Name: p.name, Role: p.role, Responsibilities: p.resp }));
-  const tasks = [['Send draft of #SS1038 to Neha', 'Today', 'No'], ['Order 50 magazine boxes', 'This Week', 'No'], ['Reply to Velvet Vows about bulk pricing', 'Today', 'No'],
-    ['Shoot unboxing reel', 'This Week', 'No'], ['Update price list for wedding season', 'Later', 'No'], ['Dispatch #SS1033 and #SS1034', 'Today', 'Yes']]
+  const tasks = [['Review the automation draft for #SS1038 and send it to Neha', 'Today', 'No'], ['Approve 3 wedding-planner emails in B2B', 'Today', 'No'],
+    ['Call Velvet Vows about 40 save-the-date newspapers', 'Today', 'No'], ['Follow up on unpaid orders', 'Today', 'No'],
+    ['Order 50 magazine boxes', 'This Week', 'No'], ['Shoot unboxing reel for the couple magazine', 'This Week', 'No'],
+    ['Reprint #SS1029 (damaged in transit)', 'This Week', 'No'], ['Plan the Valentine’s Day collection', 'Later', 'No'],
+    ['Update price list for wedding season', 'Later', 'No'], ['Dispatch #SS1033 and #SS1034', 'Today', 'Yes']]
     .map(([t, c, d], i) => ({ ID: 'demo-t' + i, Text: t, Category: c, Done: d }));
   const ts = (h) => 't' + (now - h * 36e5);
   const activityLog = [[30, 'Kabir Mehta', 'Orders', 'Kabir Mehta marked order #SS1031 as Delivered'], [20, 'Ananya Kapoor', 'Orders', 'Ananya Kapoor sent the draft for order #SS1036'],
@@ -5406,7 +5416,7 @@ async function renderTeamAccessList() {
   const el = document.getElementById('team-access-list');
   el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;text-align:center;padding:20px">Loading…</div>';
   const parsed = demoMode ? { emailCol: 1, nameCol: 0, adminCol: 2, modulesCol: 3,
-      rows: [[(currentUser && currentUser.name) || 'Owner', 'owner@demo.storyos', 'Yes', 'all']].concat(DEMO_TEAM_PEOPLE.map((p, i) => [p.name, p.email, 'No', ['home,orders,tasks,documents', 'home,orders,revenue,tasks', 'home,social,b2b,tasks'][i]])) }
+      rows: [['You (owner)', 'owner@demo.storyos', 'Yes', 'all']].concat(DEMO_TEAM_PEOPLE.map((p, i) => [p.name, p.email, 'No', (['home,orders,tasks,documents', 'home,orders,revenue,tasks', 'home,social,b2b,tasks', 'home,orders,conversations', 'home,revenue,orders'][i] || 'home,tasks')])) }
     : await fetchTeamAccessRows();
   if (!parsed || !parsed.rows.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-title">No one added yet</div><div class="empty-desc">Click + Add Person to give a team member access.</div></div>';
